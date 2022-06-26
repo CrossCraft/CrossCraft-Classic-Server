@@ -19,7 +19,7 @@ auto ClassicGenerator::generate_tree(World *wrld, int x, int z) -> void {
 
 auto ClassicGenerator::setBlk(int x, int y, int z, uint8_t blk, uint8_t *data)
     -> void {
-    auto idx = (x * 256 * 64) + (z * 64) + y;
+    auto idx = (y * 256 * 256) + (z * 256) + x;
 
     if (data[idx] == Block::Stone) {
         data[idx] = blk;
@@ -31,10 +31,10 @@ auto ClassicGenerator::generate(World *wrld) -> void {
     wrld->hmap = reinterpret_cast<float *>(malloc(sizeof(float) * 256 * 256));
 
     // Noise Map Settings
-    NoiseUtil::NoiseSettings settings = {1,    1.0f, 16.0f, 0.8f,
-                                         4.0f, 0.0f, 0.4f,  0.7f};
-    NoiseUtil::NoiseSettings settings2 = {1,    1.0f, 32.0f, 0.42f,
-                                          4.5f, 0.0f, 0.0f,  1.0f};
+    NoiseUtil::NoiseSettings settings = {2,    1.0f, 1.75f, 0.75f,
+                                         3.5f, 0.0f, 0.42f,  0.6f};
+    NoiseUtil::NoiseSettings settings2 = {1,    1.0f, 4.0f, 0.42f,
+                                          4.5f, 0.0f, 0.0f,  0.85f};
 
     // Generate HMAP
     for (int x = 0; x < 256; x++) {

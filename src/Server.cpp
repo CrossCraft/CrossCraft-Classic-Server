@@ -2,6 +2,7 @@
 #include "Client.hpp"
 #include "OutgoingPackets.hpp"
 #include "World/Generation/ClassicGenerator.hpp"
+#include "World/Generation/CrossCraftGenerator.hpp"
 
 const int DEFAULT_PORT = 25565;
 
@@ -32,7 +33,7 @@ Server::Server() {
 
     // TODO: Setup World!
     world = create_refptr<World>();
-    ClassicGenerator::generate(world.get());
+    CrossCraftGenerator::generate(world.get());
 
     SC_APP_INFO("Server: Creating Listener...");
     listener_thread =
@@ -51,7 +52,6 @@ void Server::broadcast_packet(RefPtr<Network::ByteBuffer> p) {
     std::lock_guard lg(client_mutex);
 
     for (auto &[id, c] : clients) {
-        std::lock_guard lg2(c->packetsOutMutex);
 
         Byte pID = 0;
         p->ReadU8(pID);
@@ -67,8 +67,9 @@ void Server::broadcast_packet(RefPtr<Network::ByteBuffer> p) {
         }
 
         p->ResetRead();
-
+        c->packetsOutMutex.lock();
         c->packetsOut.push_back(p);
+        c->packetsOutMutex.unlock();
     }
 }
 

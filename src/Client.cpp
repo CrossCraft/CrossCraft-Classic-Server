@@ -121,9 +121,10 @@ void Client::send_init() {
     auto ptr2 = create_refptr<Outgoing::LevelInitialize>();
     ptr2->PacketID = Outgoing::OutPacketTypes::eLevelInitialize;
 
-    std::lock_guard lg(packetsOutMutex);
+    packetsOutMutex.lock();
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr.get()));
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr2.get()));
+    packetsOutMutex.unlock();
 
     z_stream strm;
     strm.zalloc = Z_NULL;
@@ -173,7 +174,9 @@ void Client::send_init() {
         char percent = (char)(((float)bytes / (float)len) * 100.0f);
         ptr3->PercentComplete = percent;
 
+        packetsOutMutex.lock();
         packetsOut.push_back(Outgoing::createOutgoingPacket(ptr3.get()));
+        packetsOutMutex.unlock();
     }
 
     delete[] outBuffer;
@@ -184,7 +187,9 @@ void Client::send_init() {
     ptr4->YSize = 64;
     ptr4->ZSize = 256;
 
+    packetsOutMutex.lock();
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr4.get()));
+    packetsOutMutex.unlock();
 
     auto ptr5 = create_refptr<Outgoing::Message>();
     ptr5->PacketID = Outgoing::OutPacketTypes::eMessage;
@@ -195,7 +200,10 @@ void Client::send_init() {
     memcpy(ptr5->Message.contents, greeter.c_str(),
            greeter.length() < STRING_LENGTH ? greeter.length() : STRING_LENGTH);
 
+
+    packetsOutMutex.lock();
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr5.get()));
+    packetsOutMutex.unlock();
 
     auto ptr6 = create_refptr<Outgoing::SpawnPlayer>();
     ptr6->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
@@ -208,8 +216,10 @@ void Client::send_init() {
     ptr6->Yaw = 0;
     ptr6->Pitch = 0;
 
+    packetsOutMutex.lock();
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr6.get()));
-
+    packetsOutMutex.unlock();
+    
     auto ptr7 = create_refptr<Outgoing::SpawnPlayer>();
     ptr7->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
     ptr7->PlayerID = PlayerID;
@@ -258,7 +268,10 @@ void Client::send_init() {
         ptr9->Yaw = c->Yaw;
         ptr9->Pitch = c->Pitch;
 
+
+        packetsOutMutex.lock();
         packetsOut.push_back(Outgoing::createOutgoingPacket(ptr9.get()));
+        packetsOutMutex.unlock();
     }
     server->client_mutex.unlock();
 }

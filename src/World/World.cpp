@@ -25,6 +25,8 @@ World::World() {
     uint32_t size = 256 * 64 * 256;
     size = HostToNetwork4(&size);
     memcpy(worldData, &size, 4);
+
+    NoiseUtil::initialize();
 }
 
 auto World::spawn() -> void {}
