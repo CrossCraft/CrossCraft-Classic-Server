@@ -43,7 +43,7 @@ auto World::load_world() -> bool {
     if (version != 1)
         return false;
 
-    gzread(save_file, worldData, 256 * 64 * 256);
+    gzread(save_file, &worldData[4], 256 * 64 * 256);
     gzclose(save_file);
 
     return true;
@@ -56,7 +56,7 @@ auto World::save() -> void {
     if (save_file != nullptr) {
         const int save_version = 1;
         gzwrite(save_file, &save_version, 1 * sizeof(int));
-        gzwrite(save_file, worldData, 256 * 64 * 256);
+        gzwrite(save_file, &worldData[4], 256 * 64 * 256);
         gzclose(save_file);
     }
 }
