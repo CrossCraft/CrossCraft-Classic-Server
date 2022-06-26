@@ -18,10 +18,10 @@
 
 #include <thread>
 
-#include <Utilities/Utilities.hpp>
-#include <Utilities/ThreadSafe.hpp>
 #include <Network/Network.hpp>
+#include <Utilities/ThreadSafe.hpp>
+#include <Utilities/Utilities.hpp>
 
-#define VERIFY(x) \
-    if (!(x))     \
+#define VERIFY(x)                                                              \
+    if (!(x))                                                                  \
         SC_APP_ERROR("ERROR READING/WRITING BUFFER");
