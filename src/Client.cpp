@@ -2,13 +2,13 @@
 #include "IncomingPackets.hpp"
 #include "OutgoingPackets.hpp"
 #include <chrono>
+#include "Server.hpp"
 #include <zlib.h>
 #include <algorithm>
 
 namespace ClassicServer
 {
-    uint8_t sample_map[128 * 64 * 128 + 4];
-
+    uint8_t* sample_map = nullptr;
 
     inline uint32_t HostToNetwork4(const void* a_Value) {
         uint32_t buf;
@@ -17,8 +17,9 @@ namespace ClassicServer
         return buf;
     }
 
-    Client::Client(int socket) {
+    Client::Client(int socket, Server* server) {
         this->socket = socket;
+        this->server = server;
 
         SC_APP_INFO("Client Created!");
         connected = true;
@@ -28,37 +29,114 @@ namespace ClassicServer
 
         client_update_thread = create_scopeptr<std::thread>(Client::update, this);
 
-        memset(sample_map, 0, 128 * 64 * 128 + 4);
+        if (sample_map == nullptr) {
+            sample_map = (uint8_t*)malloc(128 * 64 * 128 + 4);
+            memset(sample_map, 0, 128 * 64 * 128 + 4);
 
-        for(int x = 0; x < 128; x++)
-            for(int y = 0; y < 2; y++)
-                for (int z = 0; z < 128; z++) {
-                    auto idx = (y * 128 * 128) + (z * 128) + x + 4;
+            for (int x = 0; x < 128; x++)
+                for (int y = 0; y < 2; y++)
+                    for (int z = 0; z < 128; z++) {
+                        auto idx = (y * 128 * 128) + (z * 128) + x + 4;
 
-                    if (y == 0)
-                        sample_map[idx] = 7;
-                    else
-                        sample_map[idx] = 1;
-                }
+                        if (y == 0)
+                            sample_map[idx] = 7;
+                        else
+                            sample_map[idx] = 1;
+                    }
 
-        uint32_t size = 128 * 64 * 128;
-        size = HostToNetwork4(&size);
+            uint32_t size = 128 * 64 * 128;
+            size = HostToNetwork4(&size);
 
-        memcpy(sample_map, &size, 4);
+            memcpy(sample_map, &size, 4);
+        }
+
+        X = 64 * 32;
+        Y = 32 * 32 + 51;
+        Z = 64 * 32;
+        Yaw = 0;
+        Pitch = 0;
     }
-    Client::~Client() {}
+    Client::~Client() {
+        client_update_thread->join();
+    }
 
     void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
         auto packet_data = Incoming::readIncomingPacket(packet);
+        auto id = packet_data->PacketID;
+        switch (static_cast<Incoming::InPacketTypes>(id)) {
 
-        if (packet_data->PacketID == Incoming::InPacketTypes::ePlayerIdentification) {
-
+        case Incoming::InPacketTypes::ePlayerIdentification: {
             auto data = (Incoming::PlayerIdentification*)packet_data.get();
             data->Username.contents[STRING_LENGTH - 1] = 0;
             username = std::string((char*)data->Username.contents);
             username = username.substr(0, username.find_first_of(0x20));
             send_init();
+
+            break;
         }
+        case Incoming::InPacketTypes::eMessage: {
+            auto ptr = create_refptr<Outgoing::Message>();
+            ptr->PacketID = Outgoing::OutPacketTypes::eMessage;
+            ptr->PlayerID = PlayerID;
+            memset(ptr->Message.contents, 0x20, STRING_LENGTH);
+
+            auto data = (Incoming::Message*)packet_data.get();
+            data->Message.contents[STRING_LENGTH - 1] = 0;
+
+            auto msg = std::string((char*)data->Message.contents);
+
+            std::string message = username + ": " + msg;
+            memcpy(ptr->Message.contents, message.c_str(), STRING_LENGTH);
+
+            server->broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
+            break;
+        }
+
+        case Incoming::InPacketTypes::ePositionAndOrientation: {
+            auto ptr = create_refptr<Outgoing::PlayerTeleport>();
+            ptr->PacketID = Outgoing::OutPacketTypes::ePlayerTeleport;
+            ptr->PlayerID = PlayerID;
+
+            auto data = (Incoming::PositionAndOrientation*)packet_data.get();
+
+            X = ptr->X = data->X;
+            Y = ptr->Y = data->Y;
+            Z = ptr->Z = data->Z;
+            Yaw = ptr->Yaw = data->Yaw;
+            Pitch = ptr->Pitch = data->Pitch;
+
+            server->broadcast_mutex.lock();
+            server->broadcast_list.push_back(Outgoing::createOutgoingPacket(ptr.get()));
+            server->broadcast_mutex.unlock();
+            break;
+        }
+
+        case Incoming::InPacketTypes::eSetBlock: {
+            auto ptr = create_refptr<Outgoing::SetBlock>();
+            ptr->PacketID = Outgoing::OutPacketTypes::eSetBlock;
+
+            auto data = (Incoming::SetBlock*)packet_data.get();
+            ptr->X = data->X;
+            ptr->Y = data->Y;
+            ptr->Z = data->Z;
+
+            auto idx = (data->Y * 128 * 128) + (data->Z * 128) + data->X + 4;
+
+            if (data->Mode == 0)
+                sample_map[idx] = 0;
+            else
+                sample_map[idx] = data->BlockType;
+
+            ptr->BlockType = sample_map[idx];
+
+            server->broadcast_mutex.lock();
+            server->broadcast_list.push_back(Outgoing::createOutgoingPacket(ptr.get()));
+            server->broadcast_mutex.unlock();
+            break;
+        }
+
+        }
+
     }
 
     void Client::send_init() {
@@ -132,6 +210,8 @@ namespace ClassicServer
             packetsOut.push_back(Outgoing::createOutgoingPacket(ptr3.get()));
         }
 
+        delete[] outBuffer;
+
         auto ptr4 = create_refptr<Outgoing::LevelFinalize>();
         ptr4->PacketID = Outgoing::OutPacketTypes::eLevelFinalize;
         ptr4->XSize = 128;
@@ -147,7 +227,7 @@ namespace ClassicServer
         memset(ptr5->Message.contents, 0x20, STRING_LENGTH);
 
         auto greeter = "&eWelcome to CrossCraft-Classic Server, " + username + "!";
-        memcpy(ptr5->Message.contents, greeter.c_str(), greeter.length());
+        memcpy(ptr5->Message.contents, greeter.c_str(), greeter.length() < STRING_LENGTH ? greeter.length() : STRING_LENGTH);
 
         packetsOut.push_back(Outgoing::createOutgoingPacket(ptr5.get()));
 
@@ -157,7 +237,7 @@ namespace ClassicServer
         ptr6->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
         ptr6->PlayerID = 255;
         memset(ptr6->PlayerName.contents, 0x20, STRING_LENGTH);
-        memcpy(ptr6->PlayerName.contents, username.c_str(), username.length() < STRING_LENGTH ? username.length() : STRING_LENGTH);
+        memcpy(ptr6->PlayerName.contents, username.c_str(), username.length());
         ptr6->X = 64 * 32;
         ptr6->Y = 32 * 32 + 51;
         ptr6->Z = 64 * 32;
@@ -165,6 +245,54 @@ namespace ClassicServer
         ptr6->Pitch = 0;
         
         packetsOut.push_back(Outgoing::createOutgoingPacket(ptr6.get()));
+
+
+        auto ptr7 = create_refptr<Outgoing::SpawnPlayer>();
+        ptr7->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
+        ptr7->PlayerID = PlayerID;
+        memset(ptr7->PlayerName.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr7->PlayerName.contents, username.c_str(), username.length());
+        ptr7->X = 64 * 32;
+        ptr7->Y = 32 * 32 + 51;
+        ptr7->Z = 64 * 32;
+        ptr7->Yaw = 0;
+        ptr7->Pitch = 0;
+
+        server->broadcast_mutex.lock();
+        server->broadcast_list.push_back(Outgoing::createOutgoingPacket(ptr7.get()));
+        server->broadcast_mutex.unlock();
+
+        auto ptr8 = create_refptr<Outgoing::Message>();
+        ptr8->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr8->PlayerID = 0; //0 = console
+        memset(ptr8->Message.contents, 0x20, STRING_LENGTH);
+
+        auto greeter2 = "&e" + username + " joined the game";
+        memcpy(ptr8->Message.contents, greeter2.c_str(), greeter2.length() < STRING_LENGTH ? greeter2.length() : STRING_LENGTH);
+
+        server->broadcast_mutex.lock();
+        server->broadcast_list.push_back(Outgoing::createOutgoingPacket(ptr8.get()));
+        server->broadcast_mutex.unlock();
+
+        server->client_mutex.lock();
+        for (auto& [id, c] : server->clients) {
+            if (id == PlayerID)
+                continue;
+
+            auto ptr9 = create_refptr<Outgoing::SpawnPlayer>();
+            ptr9->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
+            ptr9->PlayerID = id;
+            memset(ptr9->PlayerName.contents, 0x20, STRING_LENGTH);
+            memcpy(ptr9->PlayerName.contents, c->username.c_str(), c->username.length());
+            ptr9->X = c->X;
+            ptr9->Y = c->Y;
+            ptr9->Z = c->Z;
+            ptr9->Yaw = c->Yaw;
+            ptr9->Pitch = c->Pitch;
+
+            packetsOut.push_back(Outgoing::createOutgoingPacket(ptr9.get()));
+        }
+        server->client_mutex.unlock();
     }
 
     void Client::update(Client* client) {
@@ -179,7 +307,7 @@ namespace ClassicServer
 
             client->send();
 
-            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(50));
+            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(20));
         }
     }
 
