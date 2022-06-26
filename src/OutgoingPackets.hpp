@@ -1,7 +1,6 @@
 #pragma once
 #include "ProtocolTypes.hpp"
-#include <Utilities/Utilities.hpp>
-#include <Network/Network.hpp>
+#include "Utility.hpp"
 
 namespace ClassicServer::Outgoing
 {

@@ -14,7 +14,7 @@ public:
      */
     void on_start() override
     {
-        SC_APP_INFO("RUNNING!");
+        SC_APP_INFO("CrossCraft Classic Server Starting!");
     }
 
 private:
