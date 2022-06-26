@@ -18,6 +18,17 @@ inline uint32_t HostToNetwork4(const void *a_Value) {
     return buf;
 }
 
+auto World::auto_save(World* wrld) -> void {
+    while (true) {
+        SC_APP_INFO("Server: Autosaving...");
+        wrld->save();
+        SC_APP_INFO("Server: Done!");
+
+        //Save every minute
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000 * 60));
+    }
+}
+
 World::World() {
     worldData = reinterpret_cast<uint8_t *>(
         calloc(256 * 64 * 256 + 4, sizeof(uint8_t)));
@@ -29,6 +40,10 @@ World::World() {
     NoiseUtil::initialize();
 }
 
+auto World::start_autosave() -> void {
+    autosave_thread = create_refptr<std::thread>(World::auto_save, this);
+}
+
 auto World::spawn() -> void {}
 
 auto World::load_world() -> bool {
@@ -37,8 +52,6 @@ auto World::load_world() -> bool {
 
     int version = 0;
     gzread(save_file, &version, sizeof(int) * 1);
-
-    SC_APP_DEBUG("READING FILE -- VERSION {}", version);
 
     if (version != 1)
         return false;
@@ -50,8 +63,6 @@ auto World::load_world() -> bool {
 }
 
 auto World::save() -> void {
-    SC_APP_DEBUG("SAVING!");
-
     gzFile save_file = gzopen("save.ccc", "wb");
     if (save_file != nullptr) {
         const int save_version = 1;
@@ -62,6 +73,8 @@ auto World::save() -> void {
 }
 
 World::~World() {
+    autosave_thread->join();
+
     free(worldData);
 
     // Destroy height map

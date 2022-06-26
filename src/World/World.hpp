@@ -18,9 +18,12 @@
 #include <stdio.h>
 #include <vector>
 #include "../Config.hpp"
+#include "../Utility.hpp"
 
 namespace ClassicServer
 {
+
+    using namespace Stardust_Celeste;
 
   /**
  * @brief The world
@@ -51,11 +54,7 @@ namespace ClassicServer
      */
     auto update(double dt) -> void;
 
-    /**
-     * @brief Draw the world
-     *
-     */
-    auto draw() -> void;
+    auto start_autosave() -> void;
 
     inline auto getIdx(int x, int y, int z) -> int
     {
@@ -72,9 +71,13 @@ namespace ClassicServer
     auto spawn() -> void;
     auto save() -> void;
 
+    static auto auto_save(World* wrld) -> void;
+
   private:
     friend class CrossCraftGenerator;
     friend class ClassicGenerator;
+
+    RefPtr<std::thread> autosave_thread;
   };
 
 } // namespace ClassicServer

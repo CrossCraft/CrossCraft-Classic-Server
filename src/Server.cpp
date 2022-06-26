@@ -55,7 +55,7 @@ namespace ClassicServer
                 CrossCraftGenerator::generate(world.get());
         }
 
-        world->save();
+        world->start_autosave();
 
         SC_APP_INFO("Server: Creating Listener...");
         listener_thread =
