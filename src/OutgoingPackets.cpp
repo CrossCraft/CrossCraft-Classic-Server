@@ -4,7 +4,7 @@ const size_t MAX_SIZE = 1028;
 
 namespace ClassicServer::Outgoing
 {
-    auto createOutgoingPacket(RefPtr<BasePacket> base_packet) -> RefPtr<Network::ByteBuffer>
+    auto createOutgoingPacket(BasePacket* base_packet) -> RefPtr<Network::ByteBuffer>
     {
         Byte id = base_packet->PacketID;
 
@@ -16,7 +16,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<ServerIdentification>(base_packet);
+            auto packet = reinterpret_cast<ServerIdentification*>(base_packet);
 
             VERIFY(ptr->WriteU8(packet->ProtocolVersion))
             VERIFY(ptr->WriteBuf(packet->ServerName.contents, STRING_LENGTH))
@@ -30,7 +30,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<LevelDataChunk>(base_packet);
+            auto packet = reinterpret_cast<LevelDataChunk*>(base_packet);
 
             VERIFY(ptr->WriteI16(packet->ChunkLength))
             VERIFY(ptr->WriteBuf(packet->ChunkData.contents, ARRAY_LENGTH))
@@ -43,7 +43,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<LevelFinalize>(base_packet);
+            auto packet = reinterpret_cast<LevelFinalize*>(base_packet);
 
             VERIFY(ptr->WriteI16(packet->XSize))
             VERIFY(ptr->WriteI16(packet->YSize))
@@ -56,7 +56,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<SetBlock>(base_packet);
+            auto packet = reinterpret_cast<SetBlock*>(base_packet);
 
             VERIFY(ptr->WriteI16(packet->X))
             VERIFY(ptr->WriteI16(packet->Y))
@@ -70,7 +70,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<SpawnPlayer>(base_packet);
+            auto packet = reinterpret_cast<SpawnPlayer*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
             VERIFY(ptr->WriteBuf(packet->PlayerName.contents, STRING_LENGTH))
@@ -87,7 +87,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<PlayerTeleport>(base_packet);
+            auto packet = reinterpret_cast<PlayerTeleport*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
             VERIFY(ptr->WriteI16(packet->X))
@@ -103,7 +103,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<PlayerUpdate>(base_packet);
+            auto packet = reinterpret_cast<PlayerUpdate*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
             VERIFY(ptr->WriteI16(packet->X))
@@ -119,7 +119,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<PositionUpdate>(base_packet);
+            auto packet = reinterpret_cast<PositionUpdate*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
             VERIFY(ptr->WriteI8(packet->DX))
@@ -133,7 +133,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<OrientationUpdate>(base_packet);
+            auto packet = reinterpret_cast<OrientationUpdate*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
             VERIFY(ptr->WriteU8(packet->Yaw))
@@ -146,7 +146,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<DespawnPlayer>(base_packet);
+            auto packet = reinterpret_cast<DespawnPlayer*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
 
@@ -157,7 +157,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<Message>(base_packet);
+            auto packet = reinterpret_cast<Message*>(base_packet);
 
             VERIFY(ptr->WriteI8(packet->PlayerID))
             VERIFY(ptr->WriteBuf(packet->Message.contents, STRING_LENGTH))
@@ -169,7 +169,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<Disconnect>(base_packet);
+            auto packet = reinterpret_cast<Disconnect*>(base_packet);
 
             VERIFY(ptr->WriteBuf(packet->Reason.contents, STRING_LENGTH))
 
@@ -181,7 +181,7 @@ namespace ClassicServer::Outgoing
             auto ptr = create_refptr<Network::ByteBuffer>(MAX_SIZE);
             ptr->WriteU8(id);
 
-            auto packet = std::dynamic_pointer_cast<UpdateUserType>(base_packet);
+            auto packet = reinterpret_cast<UpdateUserType*>(base_packet);
 
             VERIFY(ptr->WriteU8(packet->UserType))
 

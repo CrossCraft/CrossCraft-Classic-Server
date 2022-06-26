@@ -139,5 +139,5 @@ namespace ClassicServer::Outgoing
         Byte UserType;
     };
 
-    auto createOutgoingPacket(RefPtr<BasePacket> base_packet) -> RefPtr<Network::ByteBuffer>;
+    auto createOutgoingPacket(BasePacket* base_packet) -> RefPtr<Network::ByteBuffer>;
 }
