@@ -7,14 +7,6 @@
 #include <zlib.h>
 
 namespace ClassicServer {
-uint8_t *sample_map = nullptr;
-
-inline uint32_t HostToNetwork4(const void *a_Value) {
-    uint32_t buf;
-    memcpy(&buf, a_Value, sizeof(buf));
-    buf = ntohl(buf);
-    return buf;
-}
 
 Client::Client(int socket, Server *server) {
     this->socket = socket;
@@ -27,27 +19,6 @@ Client::Client(int socket, Server *server) {
     packetsOut.clear();
 
     client_update_thread = create_scopeptr<std::thread>(Client::update, this);
-
-    if (sample_map == nullptr) {
-        sample_map = (uint8_t *)malloc(256 * 64 * 256 + 4);
-        memset(sample_map, 0, 256 * 64 * 256 + 4);
-
-        for (int x = 0; x < 256; x++)
-            for (int y = 0; y < 2; y++)
-                for (int z = 0; z < 256; z++) {
-                    auto idx = (y * 256 * 256) + (z * 256) + x + 4;
-
-                    if (y == 0)
-                        sample_map[idx] = 7;
-                    else
-                        sample_map[idx] = 1;
-                }
-
-        uint32_t size = 256 * 64 * 256;
-        size = HostToNetwork4(&size);
-
-        memcpy(sample_map, &size, 4);
-    }
 
     X = 64 * 32;
     Y = 32 * 32 + 51;
@@ -121,11 +92,11 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
         auto idx = (data->Y * 256 * 256) + (data->Z * 256) + data->X + 4;
 
         if (data->Mode == 0)
-            sample_map[idx] = 0;
+            server->world->worldData[idx] = 0;
         else
-            sample_map[idx] = data->BlockType;
+            server->world->worldData[idx] = data->BlockType;
 
-        ptr->BlockType = sample_map[idx];
+        ptr->BlockType = server->world->worldData[idx];
 
         server->broadcast_mutex.lock();
         server->broadcast_list.push_back(
@@ -159,7 +130,7 @@ void Client::send_init() {
     strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
     strm.avail_in = 256 * 64 * 256 + 4;
-    strm.next_in = (Bytef *)sample_map;
+    strm.next_in = (Bytef *)server->world->worldData;
     strm.avail_out = 0;
     strm.next_out = Z_NULL;
 
