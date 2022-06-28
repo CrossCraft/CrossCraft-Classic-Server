@@ -142,7 +142,7 @@ void Server::update(float dt) {
     broadcast_list.clear();
     broadcast_mutex.unlock();
 
-    // TODO: Update World
+    world->update(dt);
 
     std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(50));
 }
