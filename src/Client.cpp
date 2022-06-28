@@ -109,6 +109,8 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
 
         ptr->BlockType = server->world->worldData[idx];
 
+        server->world->update_nearby_blocks({data->X, data->Y, data->Z});
+
         server->broadcast_mutex.lock();
         server->broadcast_list.push_back(
             Outgoing::createOutgoingPacket(ptr.get()));

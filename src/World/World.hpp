@@ -69,14 +69,33 @@ class World {
     auto spawn() -> void;
     auto save() -> void;
 
+    auto blockUpdate() -> void;
+
     auto rtick() -> void;
     auto setBlock(int x, int y, int z, uint8_t block) -> void;
 
     static auto auto_save(World *wrld) -> void;
 
+    /**
+     * @brief Updates nearby block states
+     *
+     * @param ivec Block source from update
+     */
+    auto update_nearby_blocks(glm::ivec3 ivec) -> void;
+
+    /**
+     * @brief Calculate and add update to chunk
+     *
+     */
+    auto add_update(glm::ivec3 ivec) -> void;
+
+    std::vector<glm::ivec3> posUpdate;
+
   private:
     friend class CrossCraftGenerator;
     friend class ClassicGenerator;
+    auto update_check(World *wrld, int blkr, glm::ivec3 chk) -> void;
+    std::vector<glm::ivec3> updated;
 
     RefPtr<std::thread> autosave_thread;
     Server *serv;

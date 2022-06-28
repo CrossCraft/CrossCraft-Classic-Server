@@ -86,11 +86,52 @@ World::~World() {
 }
 
 int rtick_count = 0;
+
+auto is_valid(glm::ivec3 ivec) -> bool {
+    return ivec.x >= 0 && ivec.x < 256 && ivec.y >= 0 && ivec.y < 256 &&
+           ivec.z >= 0 && ivec.z < 256;
+}
+
+auto World::blockUpdate() -> void {
+    std::vector<glm::ivec3> newV;
+
+    for (auto &v : posUpdate) {
+        newV.push_back(v);
+    }
+
+    posUpdate.clear();
+
+    for (auto &pos : newV) {
+        auto blk = worldData[getIdx(pos.x, pos.y, pos.z)];
+
+        if (blk == Block::Water) {
+            update_check(this, blk, {pos.x, pos.y - 1, pos.z});
+            update_check(this, blk, {pos.x - 1, pos.y, pos.z});
+            update_check(this, blk, {pos.x + 1, pos.y, pos.z});
+            update_check(this, blk, {pos.x, pos.y, pos.z + 1});
+            update_check(this, blk, {pos.x, pos.y, pos.z - 1});
+        } else if (blk == Block::Sapling || blk == Block::Flower1 ||
+                   blk == Block::Flower2 || blk == Block::Mushroom1 ||
+                   blk == Block::Mushroom2) {
+            update_check(this, blk, {pos.x, pos.y - 1, pos.z});
+        } else if (blk == Block::Sand || blk == Block::Gravel) {
+            update_check(this, blk, {pos.x, pos.y - 1, pos.z});
+        }
+    }
+
+    for (auto &v : updated) {
+        update_nearby_blocks(v);
+    }
+
+    updated.clear();
+}
+
 void World::update(double dt) {
     // We are ticking 20 times per second. Rtick = 4 times.
     rtick_count++;
     if (rtick_count == 5) {
         rtick_count = 0;
+        blockUpdate();
         for (int i = 0; i < 16 * 16 * 4; i++)
             rtick();
     }
@@ -175,6 +216,46 @@ auto World::rtick() -> void {
         setBlock(x, y, z, Block::Dirt);
         return;
     }
+}
+
+auto World::update_check(World *wrld, int blkr, glm::ivec3 chk) -> void {
+    if (is_valid(chk)) {
+        auto blk = wrld->worldData[getIdx(chk.x, chk.y, chk.z)];
+        if (blk == Block::Air) {
+
+            if (blkr == Block::Water) {
+                setBlock(chk.x, chk.y, chk.z, Block::Water);
+                updated.push_back(chk);
+            } else if (blkr == Block::Sapling || blkr == Block::Flower1 ||
+                       blkr == Block::Flower2 || blkr == Block::Mushroom1 ||
+                       blkr == Block::Mushroom2) {
+                setBlock(chk.x, chk.y + 1, chk.z, 0);
+                updated.push_back(chk);
+            } else if (blkr == Block::Gravel || blkr == Block::Sand) {
+                setBlock(chk.x, chk.y + 1, chk.z, Block::Air);
+                setBlock(chk.x, chk.y, chk.z, blkr);
+
+                update_nearby_blocks({chk.x, chk.y + 1, chk.z});
+                updated.push_back(chk);
+            }
+        }
+    }
+}
+
+auto World::add_update(glm::ivec3 ivec) -> void {
+    if (ivec.x >= 0 && ivec.x < 256 && ivec.y >= 0 && ivec.y < 256 &&
+        ivec.z >= 0 && ivec.z < 256)
+        posUpdate.push_back(ivec);
+}
+
+auto World::update_nearby_blocks(glm::ivec3 ivec) -> void {
+    add_update({ivec.x, ivec.y, ivec.z});
+    add_update({ivec.x, ivec.y + 1, ivec.z});
+    add_update({ivec.x, ivec.y - 1, ivec.z});
+    add_update({ivec.x - 1, ivec.y, ivec.z});
+    add_update({ivec.x + 1, ivec.y, ivec.z});
+    add_update({ivec.x, ivec.y, ivec.z + 1});
+    add_update({ivec.x, ivec.y, ivec.z - 1});
 }
 
 } // namespace ClassicServer
