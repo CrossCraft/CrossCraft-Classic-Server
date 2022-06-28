@@ -200,36 +200,65 @@ void Client::send_init() {
     memcpy(ptr5->Message.contents, greeter.c_str(),
            greeter.length() < STRING_LENGTH ? greeter.length() : STRING_LENGTH);
 
-
     packetsOutMutex.lock();
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr5.get()));
     packetsOutMutex.unlock();
 
+    bool spawned = false;
+    int count = 30;
+
+    while (!spawned && count >= 0) {
+        count--;
+        int x = rand() % 64 - 32 + 128;
+        int z = rand() % 64 - 32 + 128;
+
+        for (int y = 50; y > 32; y--) {
+            auto blk = server->world->worldData[server->world->getIdx(x, y, z)];
+
+            if (blk != 0 && blk != 8) {
+                X = x * 32 + 16;
+                Y = (y + 1) * 32 + 51;
+                Z = z * 32 + 16;
+                Yaw = 0;
+                Pitch = 0;
+
+                SC_APP_INFO("SPAWNED AT {} {} {} {}", x, y, z, blk);
+                goto spawn;
+            }
+        }
+    }
+    X = 128 * 32;
+    Y = 60 * 32 + 51;
+    Z = 128 * 32;
+    Yaw = 0;
+    Pitch = 0;
+
+spawn:
     auto ptr6 = create_refptr<Outgoing::SpawnPlayer>();
     ptr6->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
     ptr6->PlayerID = 255;
     memset(ptr6->PlayerName.contents, 0x20, STRING_LENGTH);
     memcpy(ptr6->PlayerName.contents, username.c_str(), username.length());
-    ptr6->X = 64 * 32;
-    ptr6->Y = 32 * 32 + 51;
-    ptr6->Z = 64 * 32;
-    ptr6->Yaw = 0;
-    ptr6->Pitch = 0;
+    ptr6->X = X;
+    ptr6->Y = Y;
+    ptr6->Z = Z;
+    ptr6->Yaw = Yaw;
+    ptr6->Pitch = Pitch;
 
     packetsOutMutex.lock();
     packetsOut.push_back(Outgoing::createOutgoingPacket(ptr6.get()));
     packetsOutMutex.unlock();
-    
+
     auto ptr7 = create_refptr<Outgoing::SpawnPlayer>();
     ptr7->PacketID = Outgoing::OutPacketTypes::eSpawnPlayer;
     ptr7->PlayerID = PlayerID;
     memset(ptr7->PlayerName.contents, 0x20, STRING_LENGTH);
     memcpy(ptr7->PlayerName.contents, username.c_str(), username.length());
-    ptr7->X = 64 * 32;
-    ptr7->Y = 32 * 32 + 51;
-    ptr7->Z = 64 * 32;
-    ptr7->Yaw = 0;
-    ptr7->Pitch = 0;
+    ptr7->X = X;
+    ptr7->Y = Y;
+    ptr7->Z = Z;
+    ptr7->Yaw = Yaw;
+    ptr7->Pitch = Pitch;
 
     server->broadcast_mutex.lock();
     server->broadcast_list.push_back(
@@ -267,7 +296,6 @@ void Client::send_init() {
         ptr9->Z = c->Z;
         ptr9->Yaw = c->Yaw;
         ptr9->Pitch = c->Pitch;
-
 
         packetsOutMutex.lock();
         packetsOut.push_back(Outgoing::createOutgoingPacket(ptr9.get()));
