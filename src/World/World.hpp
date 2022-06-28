@@ -10,6 +10,9 @@
  */
 #pragma once
 #include "../BlockConst.hpp"
+#include "../Config.hpp"
+#include "../Server.hpp"
+#include "../Utility.hpp"
 #include <Utilities/Types.hpp>
 #include <glm.hpp>
 #include <map>
@@ -17,27 +20,23 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <vector>
-#include "../Config.hpp"
-#include "../Utility.hpp"
 
-namespace ClassicServer
-{
+namespace ClassicServer {
 
-    using namespace Stardust_Celeste;
-
-  /**
+using namespace Stardust_Celeste;
+class Server;
+/**
  * @brief The world
  *
  */
-  class World
-  {
+class World {
   public:
     /**
      * @brief Construct a new World object
      *
      * @param p Player to use
      */
-    World();
+    World(Server *server);
 
     /**
      * @brief Destroy the World object
@@ -56,12 +55,11 @@ namespace ClassicServer
 
     auto start_autosave() -> void;
 
-    inline auto getIdx(int x, int y, int z) -> int
-    {
-      if (x >= 0 && x < 256 && y >= 0 && y < 64 && z >= 0 && z < 256)
-        return (y * 256 * 256) + (z * 256) + x + 4;
+    inline auto getIdx(int x, int y, int z) -> int {
+        if (x >= 0 && x < 256 && y >= 0 && y < 64 && z >= 0 && z < 256)
+            return (y * 256 * 256) + (z * 256) + x + 4;
 
-      return -1;
+        return -1;
     }
 
     uint8_t *worldData;
@@ -71,13 +69,17 @@ namespace ClassicServer
     auto spawn() -> void;
     auto save() -> void;
 
-    static auto auto_save(World* wrld) -> void;
+    auto rtick() -> void;
+    auto setBlock(int x, int y, int z, uint8_t block) -> void;
+
+    static auto auto_save(World *wrld) -> void;
 
   private:
     friend class CrossCraftGenerator;
     friend class ClassicGenerator;
 
     RefPtr<std::thread> autosave_thread;
-  };
+    Server *serv;
+};
 
 } // namespace ClassicServer

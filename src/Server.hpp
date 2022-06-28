@@ -7,6 +7,7 @@ namespace ClassicServer {
 using namespace Stardust_Celeste;
 
 class Client;
+class World;
 
 class Server {
   public:

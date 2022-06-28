@@ -31,7 +31,7 @@ Server::Server() {
 
     SC_APP_INFO("Server: Socket Created!");
 
-    world = create_refptr<World>();
+    world = create_refptr<World>(this);
     world->cfg = Config::loadConfig();
 
     FILE *fptr = fopen("save.ccc", "r");
