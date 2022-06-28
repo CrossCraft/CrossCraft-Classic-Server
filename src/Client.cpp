@@ -93,8 +93,19 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
 
         if (data->Mode == 0)
             server->world->worldData[idx] = 0;
-        else
-            server->world->worldData[idx] = data->BlockType;
+        else {
+            auto blk = data->BlockType;
+            auto blk2 = server->world->worldData[server->world->getIdx(
+                data->X, data->Y - 1, data->Z)];
+
+            if (!(((blk == Block::Flower1 || blk == Block::Flower2 ||
+                    blk == Block::Sapling) &&
+                   blk2 != Block::Grass && blk2 != Block::Dirt) ||
+                  ((blk == Block::Mushroom1 || blk == Block::Mushroom2) &&
+                   (blk2 != Block::Stone && blk2 != Block::Cobblestone &&
+                    blk2 != Block::Gravel))))
+                server->world->worldData[idx] = data->BlockType;
+        }
 
         ptr->BlockType = server->world->worldData[idx];
 
