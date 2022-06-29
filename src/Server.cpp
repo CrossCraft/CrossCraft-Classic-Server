@@ -31,6 +31,9 @@ Server::Server() {
 
     SC_APP_INFO("Server: Socket Created!");
 
+    int flag = 1;
+    setsockopt(listener_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
+
     world = create_refptr<World>(this);
     world->cfg = Config::loadConfig();
 
