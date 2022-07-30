@@ -59,20 +59,46 @@ auto World::load_world() -> bool {
     if (version != 1)
         return false;
 
-    gzread(save_file, &worldData[4], 256 * 64 * 256);
+    uint8_t *temp = (uint8_t *)malloc(256 * 64 * 256);
+
+    gzread(save_file, temp, 256 * 64 * 256);
     gzclose(save_file);
 
+    for (auto x = 0; x < 256; x++)
+        for (auto y = 0; y < 64; y++)
+            for (auto z = 0; z < 256; z++) {
+                auto idx_destiny = (y * 256 * 256) + (z * 256) + x + 4;
+
+                auto idx_source = (x * 256 * 64) + (z * 64) + y;
+                worldData[idx_destiny] = temp[idx_source];
+            }
+
+    free(temp);
     return true;
 }
 
 auto World::save() -> void {
     gzFile save_file = gzopen("save.ccc", "wb");
+
+    uint8_t *temp = (uint8_t *)malloc(256 * 64 * 256);
+
+    for (auto x = 0; x < 256; x++)
+        for (auto y = 0; y < 64; y++)
+            for (auto z = 0; z < 256; z++) {
+                auto idx_source = (y * 256 * 256) + (z * 256) + x + 4;
+
+                auto idx_destiny = (x * 256 * 64) + (z * 64) + y;
+                temp[idx_destiny] = worldData[idx_source];
+            }
+
     if (save_file != nullptr) {
         const int save_version = 1;
         gzwrite(save_file, &save_version, 1 * sizeof(int));
-        gzwrite(save_file, &worldData[4], 256 * 64 * 256);
+        gzwrite(save_file, temp, 256 * 64 * 256);
         gzclose(save_file);
     }
+
+    free(temp);
 }
 
 World::~World() {
