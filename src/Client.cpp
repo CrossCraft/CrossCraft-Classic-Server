@@ -15,6 +15,10 @@ Client::Client(int socket, Server *server) {
     SC_APP_INFO("Client Created!");
     connected = true;
 
+    int flag = 1;
+    setsockopt(this->socket, IPPROTO_TCP, TCP_NODELAY, (char *)&flag,
+               sizeof(int));
+
     packetsIn.clear();
     packetsOut.clear();
 
