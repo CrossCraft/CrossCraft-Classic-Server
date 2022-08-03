@@ -23,8 +23,10 @@ Server::Server() {
     sockaddr.sin_port = htons(DEFAULT_PORT);
 
     int flag = 1;
+#if BUILD_PLAT != BUILD_WINDOWS
     setsockopt(listener_socket, SOL_SOCKET, SO_REUSEADDR, (void*)&flag, sizeof(int));
     setsockopt(listener_socket, SOL_SOCKET, SO_REUSEPORT, (void*)&flag, sizeof(int));
+#endif
 
     if (bind(listener_socket, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) <
         0) {
