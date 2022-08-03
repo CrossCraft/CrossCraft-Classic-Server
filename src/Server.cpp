@@ -22,6 +22,10 @@ Server::Server() {
     sockaddr.sin_addr.s_addr = INADDR_ANY;
     sockaddr.sin_port = htons(DEFAULT_PORT);
 
+    int flag = 1;
+    setsockopt(listener_socket, SOL_SOCKET, SO_REUSEADDR, (void*)&flag, sizeof(int));
+    setsockopt(listener_socket, SOL_SOCKET, SO_REUSEPORT, (void*)&flag, sizeof(int));
+
     if (bind(listener_socket, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) <
         0) {
         throw std::runtime_error(
@@ -31,7 +35,6 @@ Server::Server() {
 
     SC_APP_INFO("Server: Socket Created!");
 
-    int flag = 1;
     setsockopt(listener_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
 
     world = create_refptr<World>(this);
