@@ -265,6 +265,15 @@ auto World::update_check(World *wrld, int blkr, glm::ivec3 chk) -> void {
                 updated.push_back(chk);
             }
         }
+        else if (blk == Block::Still_Lava || blk == Block::Lava || blk == Block::Water || blk == Block::Still_Water) {
+            if (blkr == Block::Gravel || blkr == Block::Sand) {
+                setBlock(chk.x, chk.y + 1, chk.z, Block::Air);
+                setBlock(chk.x, chk.y, chk.z, blkr);
+
+                update_nearby_blocks({ chk.x, chk.y + 1, chk.z });
+                updated.push_back(chk);
+            }
+        }
     }
 }
 
