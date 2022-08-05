@@ -240,6 +240,59 @@ void Server::process_command(std::string cmd, bool op) {
         }
     }
 
+    if (firstArg == "/op") {
+        int oper = -1;
+        for (auto c : clients) {
+            if (remaining == c.second->username) {
+                oper = c.first;
+                break;
+            }
+        }
+
+        if (oper < 0)
+            return;
+
+        clients[oper]->isOP = true;
+
+        auto ptr3 = create_refptr<Outgoing::Message>();
+        auto reason = "&bYou were promoted to operator!";
+        ptr3->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr3->PlayerID = 255;
+        memset(ptr3->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr3->Message.contents, reason,
+               strlen(reason) < STRING_LENGTH ? strlen(reason) : STRING_LENGTH);
+
+        clients[oper]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr3.get()));
+    }
+
+    if (firstArg == "/deop") {
+        int oper = -1;
+        for (auto c : clients) {
+            if (remaining == c.second->username) {
+                if (c.second->isOP)
+                    oper = c.first;
+                break;
+            }
+        }
+
+        if (oper < 0)
+            return;
+
+        clients[oper]->isOP = false;
+
+        auto ptr3 = create_refptr<Outgoing::Message>();
+        auto reason = "&cYou were demoted!";
+        ptr3->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr3->PlayerID = 255;
+        memset(ptr3->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr3->Message.contents, reason,
+               strlen(reason) < STRING_LENGTH ? strlen(reason) : STRING_LENGTH);
+
+        clients[oper]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr3.get()));
+    }
+
     if (firstArg == "/ban") {
         int kicked = -1;
 

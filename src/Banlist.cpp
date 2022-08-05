@@ -1,5 +1,6 @@
 #include "Banlist.hpp"
 #include <iostream>
+#include <string>
 
 BanList::BanList() {
     std::ifstream file("bans.txt");
@@ -27,6 +28,7 @@ void BanList::unban(std::string name) {
     }
 
     bans.erase(bans.begin() + id);
+    write_bans();
 }
 
 bool BanList::is_banned(std::string name) {

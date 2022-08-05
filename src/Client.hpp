@@ -24,6 +24,7 @@ class Client {
     int PlayerID;
     std::string username;
     bool connected;
+    bool isOP;
 
     Short X, Y, Z;
     Byte Yaw, Pitch;

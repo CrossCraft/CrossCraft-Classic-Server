@@ -12,6 +12,7 @@ namespace ClassicServer {
 Client::Client(int socket, Server *server) {
     this->socket = socket;
     this->server = server;
+    this->isOP = false;
 
     SC_APP_INFO("Client Created!");
     connected = true;
