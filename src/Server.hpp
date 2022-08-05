@@ -17,6 +17,7 @@ class Server {
     void update(float dt);
     void broadcast_packet(RefPtr<Network::ByteBuffer>);
     static auto connection_listener(Server *server) -> void;
+    static auto command_listener(Server *server) -> void;
 
     std::mutex broadcast_mutex;
     std::vector<RefPtr<Network::ByteBuffer>> broadcast_list;
@@ -33,5 +34,6 @@ class Server {
     int pingCounter;
 
     ScopePtr<std::thread> listener_thread;
+    ScopePtr<std::thread> command_thread;
 };
 } // namespace ClassicServer

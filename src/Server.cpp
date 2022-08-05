@@ -24,8 +24,10 @@ Server::Server() {
 
     int flag = 1;
 #if BUILD_PLAT != BUILD_WINDOWS
-    setsockopt(listener_socket, SOL_SOCKET, SO_REUSEADDR, (void*)&flag, sizeof(int));
-    setsockopt(listener_socket, SOL_SOCKET, SO_REUSEPORT, (void*)&flag, sizeof(int));
+    setsockopt(listener_socket, SOL_SOCKET, SO_REUSEADDR, (void *)&flag,
+               sizeof(int));
+    setsockopt(listener_socket, SOL_SOCKET, SO_REUSEPORT, (void *)&flag,
+               sizeof(int));
 #endif
 
     if (bind(listener_socket, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) <
@@ -37,7 +39,8 @@ Server::Server() {
 
     SC_APP_INFO("Server: Socket Created!");
 
-    setsockopt(listener_socket, IPPROTO_TCP, TCP_NODELAY, (char*)&flag, sizeof(int));
+    setsockopt(listener_socket, IPPROTO_TCP, TCP_NODELAY, (char *)&flag,
+               sizeof(int));
 
     world = create_refptr<World>(this);
     world->cfg = Config::loadConfig();
@@ -66,6 +69,8 @@ Server::Server() {
     SC_APP_INFO("Server: Creating Listener...");
     listener_thread =
         create_scopeptr<std::thread>(Server::connection_listener, this);
+    command_thread =
+        create_scopeptr<std::thread>(Server::command_listener, this);
     pingCounter = 0;
 }
 
@@ -119,6 +124,8 @@ void Server::update(float dt) {
         ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;
         ptr2->PlayerID = 0;
         auto msg = "&e" + clients[id]->username + " left the game";
+
+        std::cout << msg << std::endl;
         memset(ptr2->Message.contents, 0x20, STRING_LENGTH);
         memcpy(ptr2->Message.contents, msg.c_str(),
                msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
@@ -153,6 +160,33 @@ void Server::update(float dt) {
     world->update(dt);
 
     std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(50));
+}
+
+auto Server::command_listener(Server *server) -> void {
+
+    while (true) {
+        char cmd[256];
+        memset(cmd, 0, 256);
+
+        std::cin.getline(cmd, 256);
+
+        if (cmd[0] == '/') {
+            // Process Command
+        } else {
+            auto ptr2 = create_refptr<Outgoing::Message>();
+            ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;
+            ptr2->PlayerID = 0;
+            auto msg = "&4[Console]: " + std::string(cmd);
+
+            std::cout << msg << std::endl;
+            memset(ptr2->Message.contents, 0x20, STRING_LENGTH);
+            memcpy(ptr2->Message.contents, msg.c_str(),
+                   msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+            server->broadcast_packet(
+                Outgoing::createOutgoingPacket(ptr2.get()));
+        }
+    }
 }
 
 auto Server::connection_listener(Server *server) -> void {

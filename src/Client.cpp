@@ -4,6 +4,7 @@
 #include "Server.hpp"
 #include <algorithm>
 #include <chrono>
+#include <iostream>
 #include <zlib.h>
 
 namespace ClassicServer {
@@ -58,6 +59,8 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
         auto msg = std::string((char *)data->Message.contents);
 
         std::string message = username + ": " + msg;
+
+        std::cout << message << std::endl;
         memcpy(ptr->Message.contents, message.c_str(), STRING_LENGTH);
 
         server->broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
@@ -288,6 +291,7 @@ spawn:
     memset(ptr8->Message.contents, 0x20, STRING_LENGTH);
 
     auto greeter2 = "&e" + username + " joined the game";
+    std::cout << greeter2 << std::endl;
     memcpy(ptr8->Message.contents, greeter2.c_str(),
            greeter2.length() < STRING_LENGTH ? greeter2.length()
                                              : STRING_LENGTH);

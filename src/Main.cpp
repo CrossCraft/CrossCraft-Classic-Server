@@ -1,33 +1,24 @@
-#include <Stardust-Celeste.hpp>
 #include "Server.hpp"
+#include <Stardust-Celeste.hpp>
 
 using namespace Stardust_Celeste;
 
 /**
  * @brief Class to handle the server updates
  */
-class MainState : public Core::ApplicationState
-{
-public:
+class MainState : public Core::ApplicationState {
+  public:
     MainState() = default;
     ~MainState() = default;
 
-    void on_start()
-    {
-        server = create_scopeptr<ClassicServer::Server>();
-    }
+    void on_start() { server = create_scopeptr<ClassicServer::Server>(); }
 
-    void on_cleanup()
-    {
-    }
+    void on_cleanup() {}
 
-    void on_update(Core::Application *app, double dt)
-    {
-        server->update(dt);
-    }
+    void on_update(Core::Application *app, double dt) { server->update(dt); }
     void on_draw(Core::Application *app, double dt) {}
 
-private:
+  private:
     ScopePtr<ClassicServer::Server> server;
 };
 
@@ -35,21 +26,22 @@ private:
  * @brief Class to run the game state
  *
  */
-class GameApplication : public Core::Application
-{
-public:
+class GameApplication : public Core::Application {
+  public:
     /**
      * @brief On Start override
      */
-    void on_start() override
-    {
+    void on_start() override {
         SC_APP_INFO("CrossCraft Classic Server Starting!");
+
+        Utilities::Logger::get_app_log()->std_output = false;
+        Utilities::Logger::get_app_log()->flush_output = true;
 
         state = create_refptr<MainState>();
         this->set_state(state);
     }
 
-private:
+  private:
     RefPtr<MainState> state;
 };
 
@@ -58,8 +50,7 @@ private:
  *
  * @return Core::Application*
  */
-Core::Application *CreateNewSCApp()
-{
+Core::Application *CreateNewSCApp() {
 
     // Configure the engine
     Core::AppConfig config;
@@ -67,7 +58,8 @@ Core::Application *CreateNewSCApp()
     config.networking = true;
 
     Core::PlatformLayer::get().initialize(config);
-    Stardust_Celeste::Utilities::Logger::get_app_log()->setCutoff(Utilities::LogLevel::Debug);
+    Stardust_Celeste::Utilities::Logger::get_app_log()->setCutoff(
+        Utilities::LogLevel::Debug);
 
     // Return the game
     return new GameApplication();
