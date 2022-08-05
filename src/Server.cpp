@@ -72,6 +72,14 @@ Server::Server() {
     command_thread =
         create_scopeptr<std::thread>(Server::command_listener, this);
     pingCounter = 0;
+
+    key = "";
+    std::ifstream f("key.txt");
+
+    if (f.is_open())
+        f >> key;
+
+    f.close();
 }
 
 Server::~Server() {

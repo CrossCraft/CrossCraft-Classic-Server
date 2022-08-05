@@ -33,6 +33,8 @@ class Server {
 
     BanList bans;
 
+    std::string key;
+
   private:
     bool stopping = false;
     int stop_tcount = 20;

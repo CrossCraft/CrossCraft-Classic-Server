@@ -49,6 +49,25 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
         username = std::string((char *)data->Username.contents);
         username = username.substr(0, username.find_first_of(0x20));
 
+        std::string key = std::string((char *)data->VerificationKey.contents);
+        key = key.substr(0, key.find_first_of(0x20));
+
+        if (server->key != "") {
+            if (server->key != key) {
+                auto ptr = create_refptr<Outgoing::Disconnect>();
+                ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
+                memset(ptr->Reason.contents, 0x20, STRING_LENGTH);
+                auto reason = std::string("&dYou are not verified!");
+                memcpy(ptr->Reason.contents, reason.c_str(),
+                       reason.length() < STRING_LENGTH ? reason.length()
+                                                       : STRING_LENGTH);
+                packetsOut.push_back(Outgoing::createOutgoingPacket(ptr.get()));
+                connected = false;
+                send();
+                return;
+            }
+        }
+
         if (server->bans.is_banned(username)) {
             auto ptr = create_refptr<Outgoing::Disconnect>();
             ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
