@@ -81,6 +81,7 @@ Server::~Server() {
     ::close(listener_socket);
 #endif
 }
+
 void Server::broadcast_packet(RefPtr<Network::ByteBuffer> p) {
     std::lock_guard lg(client_mutex);
 
@@ -106,7 +107,7 @@ void Server::broadcast_packet(RefPtr<Network::ByteBuffer> p) {
     }
 }
 
-void Server::update(float dt) {
+void Server::update(float dt, Core::Application *app) {
     std::vector<int> idForDeletion;
     for (auto &[id, c] : clients) {
         if (!c->connected) {
@@ -160,6 +161,143 @@ void Server::update(float dt) {
     world->update(dt);
 
     std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(50));
+
+    if (stopping) {
+
+        stop_tcount -= 1;
+        if (stop_tcount < 0) {
+            std::vector<int> ids;
+            for (auto &[key, val] : clients) {
+                ids.push_back(key);
+            }
+
+            for (auto id : ids) {
+                clients[id]->send();
+                clients[id]->connected = false;
+                delete clients[id];
+                clients.erase(id);
+            }
+
+            if (stop_tcount < -50) {
+                app->exit();
+            }
+        }
+    }
+}
+
+void Server::process_command(std::string cmd, bool op) {
+    auto firstArg = cmd.substr(0, cmd.find_first_of(" "));
+    auto remaining = cmd.substr(cmd.find_first_of(" ") + 1);
+
+    if (firstArg == "/kick") {
+        int kicked = -1;
+
+        for (auto c : clients) {
+            if (remaining == c.second->username) {
+                kicked = c.first;
+                break;
+            }
+        }
+
+        if (kicked < 0)
+            return;
+
+        auto ptr = create_refptr<Outgoing::DespawnPlayer>();
+        ptr->PacketID = Outgoing::OutPacketTypes::eDespawnPlayer;
+        ptr->PlayerID = kicked;
+        broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
+
+        auto ptr2 = create_refptr<Outgoing::Message>();
+        ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr2->PlayerID = 0;
+        auto msg = "&e" + clients[kicked]->username + " was kicked!";
+
+        std::cout << msg << std::endl;
+        memset(ptr2->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr2->Message.contents, msg.c_str(),
+               msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+        broadcast_packet(Outgoing::createOutgoingPacket(ptr2.get()));
+
+        auto ptr3 = create_refptr<Outgoing::Disconnect>();
+        auto reason = "&4You were kicked!";
+        ptr3->PacketID = Outgoing::OutPacketTypes::eDisconnect;
+        memset(ptr3->Reason.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr3->Reason.contents, reason,
+               strlen(reason) < STRING_LENGTH ? strlen(reason) : STRING_LENGTH);
+
+        clients[kicked]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr3.get()));
+        clients[kicked]->send();
+        clients[kicked]->connected = false;
+        delete clients[kicked];
+        clients.erase(kicked);
+    }
+
+    if (firstArg == "/unban") {
+        if (bans.is_banned(remaining)) {
+            bans.unban(remaining);
+        }
+    }
+
+    if (firstArg == "/ban") {
+        int kicked = -1;
+
+        for (auto c : clients) {
+            if (remaining == c.second->username) {
+                kicked = c.first;
+                break;
+            }
+        }
+
+        if (kicked < 0)
+            return;
+
+        auto ptr = create_refptr<Outgoing::DespawnPlayer>();
+        ptr->PacketID = Outgoing::OutPacketTypes::eDespawnPlayer;
+        ptr->PlayerID = kicked;
+        broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
+
+        auto ptr2 = create_refptr<Outgoing::Message>();
+        ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr2->PlayerID = 0;
+        auto msg = "&e" + clients[kicked]->username + " was banned!";
+
+        std::cout << msg << std::endl;
+        memset(ptr2->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr2->Message.contents, msg.c_str(),
+               msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+        broadcast_packet(Outgoing::createOutgoingPacket(ptr2.get()));
+
+        auto ptr3 = create_refptr<Outgoing::Disconnect>();
+        auto reason = "&4You were banned!";
+        ptr3->PacketID = Outgoing::OutPacketTypes::eDisconnect;
+        memset(ptr3->Reason.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr3->Reason.contents, reason,
+               strlen(reason) < STRING_LENGTH ? strlen(reason) : STRING_LENGTH);
+
+        clients[kicked]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr3.get()));
+        clients[kicked]->send();
+        clients[kicked]->connected = false;
+        delete clients[kicked];
+        clients.erase(kicked);
+
+        bans.add_ban(remaining);
+    }
+
+    if (firstArg == "/stop") {
+        auto reason = "&6Server is stopping!";
+        auto ptr = create_refptr<Outgoing::Disconnect>();
+        ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
+        memset(ptr->Reason.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr->Reason.contents, reason,
+               strlen(reason) < STRING_LENGTH ? strlen(reason) : STRING_LENGTH);
+        broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
+
+        stopping = true;
+    }
 }
 
 auto Server::command_listener(Server *server) -> void {
@@ -172,6 +310,7 @@ auto Server::command_listener(Server *server) -> void {
 
         if (cmd[0] == '/') {
             // Process Command
+            server->process_command(std::string(cmd), true);
         } else {
             auto ptr2 = create_refptr<Outgoing::Message>();
             ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;

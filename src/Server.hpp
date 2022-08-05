@@ -1,6 +1,8 @@
 #pragma once
+#include "Banlist.hpp"
 #include "Utility.hpp"
 #include "World/World.hpp"
+#include <Core/Application.hpp>
 #include <map>
 
 namespace ClassicServer {
@@ -14,7 +16,9 @@ class Server {
     Server();
     ~Server();
 
-    void update(float dt);
+    void process_command(std::string cmd, bool op);
+
+    void update(float dt, Core::Application *app);
     void broadcast_packet(RefPtr<Network::ByteBuffer>);
     static auto connection_listener(Server *server) -> void;
     static auto command_listener(Server *server) -> void;
@@ -27,7 +31,11 @@ class Server {
 
     RefPtr<World> world;
 
+    BanList bans;
+
   private:
+    bool stopping = false;
+    int stop_tcount = 20;
     int id_count = 1;
     int listener_socket;
 

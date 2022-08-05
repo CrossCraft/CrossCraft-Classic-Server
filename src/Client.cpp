@@ -31,7 +31,11 @@ Client::Client(int socket, Server *server) {
     Yaw = 0;
     Pitch = 0;
 }
-Client::~Client() { client_update_thread->join(); }
+Client::~Client() {
+    send();
+    close(socket);
+    client_update_thread->join();
+}
 
 void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
     auto packet_data = Incoming::readIncomingPacket(packet);
@@ -43,6 +47,21 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
         data->Username.contents[STRING_LENGTH - 1] = 0;
         username = std::string((char *)data->Username.contents);
         username = username.substr(0, username.find_first_of(0x20));
+
+        if (server->bans.is_banned(username)) {
+            auto ptr = create_refptr<Outgoing::Disconnect>();
+            ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
+            memset(ptr->Reason.contents, 0x20, STRING_LENGTH);
+            auto reason = std::string("&4You are banned!");
+            memcpy(ptr->Reason.contents, reason.c_str(),
+                   reason.length() < STRING_LENGTH ? reason.length()
+                                                   : STRING_LENGTH);
+            packetsOut.push_back(Outgoing::createOutgoingPacket(ptr.get()));
+            connected = false;
+            send();
+            return;
+        }
+
         send_init();
 
         break;

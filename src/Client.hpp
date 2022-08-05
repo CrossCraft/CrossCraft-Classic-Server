@@ -28,13 +28,14 @@ class Client {
     Short X, Y, Z;
     Byte Yaw, Pitch;
 
+    void send();
+
   private:
     int socket;
 
     ScopePtr<std::thread> client_update_thread;
     Server *server;
 
-    void send();
     void send_init();
     void receive();
 

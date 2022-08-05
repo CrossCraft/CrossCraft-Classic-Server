@@ -15,7 +15,9 @@ class MainState : public Core::ApplicationState {
 
     void on_cleanup() {}
 
-    void on_update(Core::Application *app, double dt) { server->update(dt); }
+    void on_update(Core::Application *app, double dt) {
+        server->update(dt, app);
+    }
     void on_draw(Core::Application *app, double dt) {}
 
   private:
