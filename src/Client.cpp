@@ -34,7 +34,11 @@ Client::Client(int socket, Server *server) {
 }
 Client::~Client() {
     send();
+#if BUILD_PLAT == BUILD_WINDOWS
+    closesocket(socket);
+#else
     close(socket);
+#endif
     client_update_thread->join();
 }
 
