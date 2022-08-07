@@ -57,7 +57,7 @@ namespace ClassicServer
                 cp->remove_client(id);
             }
 
-            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
     }
 }

@@ -170,7 +170,7 @@ void Server::update(float dt, Core::Application *app) {
 
     world->update(dt);
 
-    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(50));
+    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(500));
 
     if (stopping) {
 

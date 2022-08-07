@@ -157,10 +157,11 @@ void World::update(double dt) {
     rtick_count++;
     if (rtick_count == 5) {
         rtick_count = 0;
-        blockUpdate();
         for (int i = 0; i < 16 * 16 * 4; i++)
             rtick();
     }
+
+    blockUpdate();
 }
 
 auto World::setBlock(int x, int y, int z, uint8_t block) -> void {
