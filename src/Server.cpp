@@ -452,8 +452,8 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
         remaining = remaining.substr(remaining.find_first_of(" ") + 1);
 
         int x = atoi(secondArg.c_str());
-        int y = atoi(secondArg.c_str());
-        int z = atoi(secondArg.c_str());
+        int y = atoi(thirdArg.c_str());
+        int z = atoi(fourthArg.c_str());
 
         if (x >= 0 && x < 256 && y >= 0 && z >= 0 && z < 256) {
             auto ptr1 = create_refptr<Outgoing::Message>();
