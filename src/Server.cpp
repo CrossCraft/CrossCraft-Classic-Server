@@ -240,8 +240,6 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
             Outgoing::createOutgoingPacket(ptr3.get()));
         clients[kicked]->send();
         clients[kicked]->connected = false;
-        delete clients[kicked];
-        clients.erase(kicked);
     } else if (firstArg == "/unban" && op) {
         auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
 
@@ -342,9 +340,6 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
             Outgoing::createOutgoingPacket(ptr3.get()));
         clients[kicked]->send();
         clients[kicked]->connected = false;
-        delete clients[kicked];
-        clients.erase(kicked);
-
         bans.add_ban(remaining);
     } else if (firstArg == "/stop" && op) {
         auto reason = "&6Server is stopping!";
