@@ -394,7 +394,8 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
     }
     else if (firstArg == "/msg") {
         auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
-        auto message = remaining.substr(remaining.find_first_of(" ") + 1);
+        remaining = remaining.substr(remaining.find_first_of(" ") + 1);
+        auto message = remaining;
 
         int player1 = -1;
         for (auto c : clients) {
