@@ -101,12 +101,17 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
 
         auto msg = std::string((char *)data->Message.contents);
 
-        std::string message = username + ": " + msg;
+        if (msg[0] == '/') {
+            server->process_command(msg, isOP, username);
+        }
+        else {
+            std::string message = username + ": " + msg;
 
-        std::cout << message << std::endl;
-        memcpy(ptr->Message.contents, message.c_str(), STRING_LENGTH);
+            std::cout << message << std::endl;
+            memcpy(ptr->Message.contents, message.c_str(), STRING_LENGTH);
 
-        server->broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
+            server->broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
+        }
         break;
     }
 

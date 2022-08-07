@@ -193,11 +193,11 @@ void Server::update(float dt, Core::Application *app) {
     }
 }
 
-void Server::process_command(std::string cmd, bool op) {
+void Server::process_command(std::string cmd, bool op, std::string user) {
     auto firstArg = cmd.substr(0, cmd.find_first_of(" "));
     auto remaining = cmd.substr(cmd.find_first_of(" ") + 1);
 
-    if (firstArg == "/kick") {
+    if (firstArg == "/kick" && op) {
         int kicked = -1;
 
         for (auto c : clients) {
@@ -240,15 +240,11 @@ void Server::process_command(std::string cmd, bool op) {
         clients[kicked]->connected = false;
         delete clients[kicked];
         clients.erase(kicked);
-    }
-
-    if (firstArg == "/unban") {
+    } else if (firstArg == "/unban" && op) {
         if (bans.is_banned(remaining)) {
             bans.unban(remaining);
         }
-    }
-
-    if (firstArg == "/op") {
+    } else if (firstArg == "/op" && op) {
         int oper = -1;
         for (auto c : clients) {
             if (remaining == c.second->username) {
@@ -272,9 +268,7 @@ void Server::process_command(std::string cmd, bool op) {
 
         clients[oper]->packetsOut.push_back(
             Outgoing::createOutgoingPacket(ptr3.get()));
-    }
-
-    if (firstArg == "/deop") {
+    } else if (firstArg == "/deop" && op) {
         int oper = -1;
         for (auto c : clients) {
             if (remaining == c.second->username) {
@@ -299,9 +293,7 @@ void Server::process_command(std::string cmd, bool op) {
 
         clients[oper]->packetsOut.push_back(
             Outgoing::createOutgoingPacket(ptr3.get()));
-    }
-
-    if (firstArg == "/ban") {
+    } else if (firstArg == "/ban" && op) {
         int kicked = -1;
 
         for (auto c : clients) {
@@ -346,9 +338,7 @@ void Server::process_command(std::string cmd, bool op) {
         clients.erase(kicked);
 
         bans.add_ban(remaining);
-    }
-
-    if (firstArg == "/stop") {
+    } else if (firstArg == "/stop" && op) {
         auto reason = "&6Server is stopping!";
         auto ptr = create_refptr<Outgoing::Disconnect>();
         ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
@@ -358,6 +348,173 @@ void Server::process_command(std::string cmd, bool op) {
         broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
 
         stopping = true;
+    }
+    else if (firstArg == "/list") {
+        int player = -1;
+        for (auto c : clients) {
+            if (user == c.second->username) {
+                player = c.first;
+                break;
+            }
+        }
+
+        if (player < 0)
+            return;
+
+        auto ptr1 = create_refptr<Outgoing::Message>();
+        ptr1->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr1->PlayerID = 0;
+        auto msg = std::string("&aCurrent players online:");
+
+        memset(ptr1->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr1->Message.contents, msg.c_str(),
+            msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+
+        clients[player]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr1.get()));
+
+        for (auto c : clients) {
+            auto ptr2 = create_refptr<Outgoing::Message>();
+            ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;
+            ptr2->PlayerID = 0;
+
+            auto msgs = std::string("&f") + c.second->username;
+
+            memset(ptr2->Message.contents, 0x20, STRING_LENGTH);
+            memcpy(ptr2->Message.contents, msgs.c_str(),
+                msgs.length() < STRING_LENGTH ? msgs.length() : STRING_LENGTH);
+
+            clients[player]->packetsOut.push_back(
+                Outgoing::createOutgoingPacket(ptr2.get()));
+        }
+    }
+    else if (firstArg == "/msg") {
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
+        auto message = remaining.substr(remaining.find_first_of(" ") + 1);
+
+        int player1 = -1;
+        for (auto c : clients) {
+            if (user == c.second->username) {
+                player1 = c.first;
+                break;
+            }
+        }
+
+        int player2 = -1;
+        for (auto c : clients) {
+            if (secondArg == c.second->username) {
+                player2 = c.first;
+                break;
+            }
+        }
+
+        if (player1 < 0 || player2 < 0)
+            return;
+
+        auto ptr1 = create_refptr<Outgoing::Message>();
+        ptr1->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr1->PlayerID = 0;
+        auto msg = std::string("&7[") + user + " -> " + clients[player2]->username + "]: " + remaining;
+        memset(ptr1->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr1->Message.contents, msg.c_str(),
+            msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+        clients[player1]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr1.get()));
+        clients[player2]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr1.get()));
+    }
+    else if (firstArg == "/tp") {
+
+        int player = -1;
+        for (auto c : clients) {
+            if (user == c.second->username) {
+                player = c.first;
+                break;
+            }
+        }
+
+        if (player < 0)
+            return;
+
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
+        remaining = remaining.substr(remaining.find_first_of(" ") + 1);
+
+        auto thirdArg = remaining.substr(0, remaining.find_first_of(" "));
+        remaining = remaining.substr(remaining.find_first_of(" ") + 1);
+
+        auto fourthArg = remaining.substr(0, remaining.find_first_of(" "));
+        remaining = remaining.substr(remaining.find_first_of(" ") + 1);
+
+        int x = atoi(secondArg.c_str());
+        int y = atoi(secondArg.c_str());
+        int z = atoi(secondArg.c_str());
+
+        if (x >= 0 && x < 256 && y >= 0 && z >= 0 && z < 256) {
+            auto ptr1 = create_refptr<Outgoing::Message>();
+            ptr1->PacketID = Outgoing::OutPacketTypes::eMessage;
+            ptr1->PlayerID = 0;
+            auto msg = std::string("&aTeleporting to coordinates!");
+
+            memset(ptr1->Message.contents, 0x20, STRING_LENGTH);
+            memcpy(ptr1->Message.contents, msg.c_str(),
+                msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+            clients[player]->packetsOut.push_back(
+                Outgoing::createOutgoingPacket(ptr1.get()));
+
+
+            auto ptr2 = create_refptr<Outgoing::PlayerTeleport>();
+            ptr2->PacketID = Outgoing::OutPacketTypes::ePlayerTeleport;
+            ptr2->PlayerID = 255;
+            ptr2->X = x * 32;
+            ptr2->Y = y * 32;
+            ptr2->Z = z * 32;
+            ptr2->Yaw = 0;
+            ptr2->Pitch = 0;
+
+            clients[player]->packetsOut.push_back(
+                Outgoing::createOutgoingPacket(ptr2.get()));
+        }
+        else {
+            auto ptr1 = create_refptr<Outgoing::Message>();
+            ptr1->PacketID = Outgoing::OutPacketTypes::eMessage;
+            ptr1->PlayerID = 0;
+            auto msg = std::string("&cBad coordinates!");
+
+            memset(ptr1->Message.contents, 0x20, STRING_LENGTH);
+            memcpy(ptr1->Message.contents, msg.c_str(),
+                msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+            clients[player]->packetsOut.push_back(
+                Outgoing::createOutgoingPacket(ptr1.get()));
+        }
+
+    }
+    else {
+        int player = -1;
+        for (auto c : clients) {
+            if (user == c.second->username) {
+                player = c.first;
+                break;
+            }
+        }
+
+        if (player < 0)
+            return;
+
+        auto ptr1 = create_refptr<Outgoing::Message>();
+        ptr1->PacketID = Outgoing::OutPacketTypes::eMessage;
+        ptr1->PlayerID = 0;
+        auto msg = std::string("&cUnknown Command!");
+
+        memset(ptr1->Message.contents, 0x20, STRING_LENGTH);
+        memcpy(ptr1->Message.contents, msg.c_str(),
+            msg.length() < STRING_LENGTH ? msg.length() : STRING_LENGTH);
+
+        clients[player]->packetsOut.push_back(
+            Outgoing::createOutgoingPacket(ptr1.get()));
     }
 }
 
@@ -371,7 +528,7 @@ auto Server::command_listener(Server *server) -> void {
 
         if (cmd[0] == '/') {
             // Process Command
-            server->process_command(std::string(cmd), true);
+            server->process_command(std::string(cmd), true, "CONSOLE");
         } else {
             auto ptr2 = create_refptr<Outgoing::Message>();
             ptr2->PacketID = Outgoing::OutPacketTypes::eMessage;

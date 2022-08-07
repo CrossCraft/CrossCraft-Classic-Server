@@ -16,7 +16,7 @@ class Server {
     Server();
     ~Server();
 
-    void process_command(std::string cmd, bool op);
+    void process_command(std::string cmd, bool op, std::string user);
 
     void update(float dt, Core::Application *app);
     void broadcast_packet(RefPtr<Network::ByteBuffer>);
