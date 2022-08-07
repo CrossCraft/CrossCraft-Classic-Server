@@ -152,22 +152,14 @@ namespace ClassicServer
 
         case Incoming::InPacketTypes::ePositionAndOrientation:
         {
-            auto ptr = create_refptr<Outgoing::PlayerTeleport>();
-            ptr->PacketID = Outgoing::OutPacketTypes::ePlayerTeleport;
-            ptr->PlayerID = PlayerID;
-
             auto data = (Incoming::PositionAndOrientation *)packet_data.get();
 
-            X = ptr->X = data->X;
-            Y = ptr->Y = data->Y;
-            Z = ptr->Z = data->Z;
-            Yaw = ptr->Yaw = data->Yaw;
-            Pitch = ptr->Pitch = data->Pitch;
+            X = data->X;
+            Y = data->Y;
+            Z = data->Z;
+            Yaw = data->Yaw;
+            Pitch = data->Pitch;
 
-            server->broadcast_mutex.lock();
-            server->broadcast_list.push_back(
-                Outgoing::createOutgoingPacket(ptr.get()));
-            server->broadcast_mutex.unlock();
             break;
         }
 
@@ -456,6 +448,11 @@ namespace ClassicServer
 
         Byte newByte;
         int res = ::recv(socket, reinterpret_cast<char *>(&newByte), 1, MSG_PEEK);
+        if (errno != EAGAIN && errno != EWOULDBLOCK)
+        {
+            connected = false;
+            return;
+        }
 
         if (res <= 0)
             return;
