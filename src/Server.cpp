@@ -198,10 +198,12 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
     auto remaining = cmd.substr(cmd.find_first_of(" ") + 1);
 
     if (firstArg == "/kick" && op) {
+
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
         int kicked = -1;
 
         for (auto c : clients) {
-            if (remaining == c.second->username) {
+            if (secondArg == c.second->username) {
                 kicked = c.first;
                 break;
             }
@@ -241,13 +243,17 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
         delete clients[kicked];
         clients.erase(kicked);
     } else if (firstArg == "/unban" && op) {
-        if (bans.is_banned(remaining)) {
-            bans.unban(remaining);
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
+
+        if (bans.is_banned(secondArg)) {
+            bans.unban(secondArg);
         }
     } else if (firstArg == "/op" && op) {
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
+
         int oper = -1;
         for (auto c : clients) {
-            if (remaining == c.second->username) {
+            if (secondArg == c.second->username) {
                 oper = c.first;
                 break;
             }
@@ -269,9 +275,10 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
         clients[oper]->packetsOut.push_back(
             Outgoing::createOutgoingPacket(ptr3.get()));
     } else if (firstArg == "/deop" && op) {
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
         int oper = -1;
         for (auto c : clients) {
-            if (remaining == c.second->username) {
+            if (secondArg == c.second->username) {
                 if (c.second->isOP)
                     oper = c.first;
                 break;
@@ -294,10 +301,11 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
         clients[oper]->packetsOut.push_back(
             Outgoing::createOutgoingPacket(ptr3.get()));
     } else if (firstArg == "/ban" && op) {
+        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
         int kicked = -1;
 
         for (auto c : clients) {
-            if (remaining == c.second->username) {
+            if (secondArg == c.second->username) {
                 kicked = c.first;
                 break;
             }
