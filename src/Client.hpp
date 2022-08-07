@@ -11,7 +11,7 @@ class Server;
 
 class Client {
   public:
-    Client(int socket, Server *server);
+    Client(int socket, Server *server, int pid);
     ~Client();
 
     static void update(Client *client);

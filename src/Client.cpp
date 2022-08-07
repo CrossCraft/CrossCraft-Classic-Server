@@ -9,7 +9,8 @@
 
 namespace ClassicServer {
 
-Client::Client(int socket, Server *server) {
+Client::Client(int socket, Server *server, int pid) {
+    this->PlayerID = pid;
     this->socket = socket;
     this->server = server;
     this->isOP = false;
@@ -78,8 +79,31 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
             memset(ptr->Reason.contents, 0x20, STRING_LENGTH);
             auto reason = std::string("&4You are banned!");
             memcpy(ptr->Reason.contents, reason.c_str(),
-                   reason.length() < STRING_LENGTH ? reason.length()
-                                                   : STRING_LENGTH);
+                reason.length() < STRING_LENGTH ? reason.length()
+                : STRING_LENGTH);
+            packetsOut.push_back(Outgoing::createOutgoingPacket(ptr.get()));
+            connected = false;
+            send();
+            return;
+        }
+
+        bool dupe = false;
+        for (auto& c : server->clients) {
+            if (c.second->username == username && c.second->PlayerID != PlayerID) {
+                dupe = true;
+                break;
+            }
+
+        }
+
+        if (dupe) {
+            auto ptr = create_refptr<Outgoing::Disconnect>();
+            ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
+            memset(ptr->Reason.contents, 0x20, STRING_LENGTH);
+            auto reason = std::string("&4You are joined in another session!");
+            memcpy(ptr->Reason.contents, reason.c_str(),
+                reason.length() < STRING_LENGTH ? reason.length()
+                : STRING_LENGTH);
             packetsOut.push_back(Outgoing::createOutgoingPacket(ptr.get()));
             connected = false;
             send();

@@ -581,8 +581,7 @@ auto Server::connection_listener(Server *server) -> void {
                     " on port " +
                     std::to_string(ntohs(socketAddress.sin_port)));
 
-        auto client = new Client(conn, server);
-        client->PlayerID = server->id_count;
+        auto client = new Client(conn, server, server->id_count);
 
         std::lock_guard lg(server->client_mutex);
         server->clients.emplace(server->id_count++, client);
