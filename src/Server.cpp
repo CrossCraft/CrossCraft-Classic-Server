@@ -340,7 +340,7 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
             Outgoing::createOutgoingPacket(ptr3.get()));
         clients[kicked]->send();
         clients[kicked]->connected = false;
-        bans.add_ban(remaining);
+        bans.add_ban(secondArg);
     } else if (firstArg == "/stop" && op) {
         auto reason = "&6Server is stopping!";
         auto ptr = create_refptr<Outgoing::Disconnect>();

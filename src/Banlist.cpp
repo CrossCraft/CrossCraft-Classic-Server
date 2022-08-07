@@ -3,7 +3,7 @@
 #include <string>
 
 BanList::BanList() {
-    std::ifstream file("bans.txt");
+    std::ifstream file("./bans.txt");
 
     std::string line;
     while (std::getline(file, line)) {
@@ -15,8 +15,10 @@ BanList::BanList() {
 BanList::~BanList() { write_bans(); }
 
 void BanList::add_ban(std::string name) {
-    bans.push_back(name);
-    write_bans();
+    if (!is_banned(name)) {
+        bans.push_back(name);
+        write_bans();
+    }
 }
 void BanList::unban(std::string name) {
     int id = 0;
