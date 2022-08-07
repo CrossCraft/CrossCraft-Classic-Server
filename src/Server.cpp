@@ -80,6 +80,8 @@ Server::Server() {
         f >> key;
 
     f.close();
+
+    cp = create_scopeptr<ClientPool>(this);
 }
 
 Server::~Server() {
@@ -582,9 +584,9 @@ auto Server::connection_listener(Server *server) -> void {
                     std::to_string(ntohs(socketAddress.sin_port)));
 
         auto client = new Client(conn, server, server->id_count);
-
         std::lock_guard lg(server->client_mutex);
-        server->clients.emplace(server->id_count++, client);
+        server->clients.emplace(server->id_count, client);
+        server->cp->add_client(server->id_count++);
     }
 }
 } // namespace ClassicServer

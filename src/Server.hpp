@@ -4,11 +4,13 @@
 #include "World/World.hpp"
 #include <Core/Application.hpp>
 #include <map>
+#include "ClientPool.hpp"
 
 namespace ClassicServer {
 using namespace Stardust_Celeste;
 
 class Client;
+class ClientPool;
 class World;
 
 class Server {
@@ -42,7 +44,7 @@ class Server {
     int listener_socket;
 
     int pingCounter;
-
+    ScopePtr<ClientPool> cp;
     ScopePtr<std::thread> listener_thread;
     ScopePtr<std::thread> command_thread;
 };
