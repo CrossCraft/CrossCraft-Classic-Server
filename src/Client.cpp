@@ -448,11 +448,6 @@ namespace ClassicServer
 
         Byte newByte;
         int res = ::recv(socket, reinterpret_cast<char *>(&newByte), 1, MSG_PEEK);
-        if (errno != EAGAIN && errno != EWOULDBLOCK)
-        {
-            connected = false;
-            return;
-        }
 
         if (res <= 0)
             return;
