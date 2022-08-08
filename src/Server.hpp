@@ -44,7 +44,6 @@ class Server {
     int listener_socket;
 
     int pingCounter;
-    ScopePtr<ClientPool> cp;
     ScopePtr<std::thread> listener_thread;
     ScopePtr<std::thread> command_thread;
 };

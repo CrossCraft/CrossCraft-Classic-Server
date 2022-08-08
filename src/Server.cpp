@@ -87,7 +87,6 @@ namespace ClassicServer
 
         f.close();
 
-        cp = create_scopeptr<ClientPool>(this);
     }
 
     Server::~Server()
@@ -666,8 +665,8 @@ namespace ClassicServer
 
             auto client = new Client(conn, server, server->id_count);
             std::lock_guard lg(server->client_mutex);
-            server->clients.emplace(server->id_count, client);
-            server->cp->add_client(server->id_count++);
+            server->clients.emplace(server->id_count++, client);
+            //server->cp->add_client(server->id_count++);
         }
     }
 } // namespace ClassicServer

@@ -16,7 +16,7 @@ namespace ClassicServer
     Client(int socket, Server *server, int pid);
     ~Client();
 
-    void update();
+    static void update(Client* client);
 
     std::vector<RefPtr<Network::ByteBuffer>> packetsIn;
 
@@ -41,5 +41,7 @@ namespace ClassicServer
     void receive();
 
     void process_packet(RefPtr<Network::ByteBuffer> packet);
+
+    ScopePtr<std::thread> update_thread;
   };
 } // namespace ClassicServer

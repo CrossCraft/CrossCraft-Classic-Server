@@ -50,7 +50,7 @@ namespace ClassicServer
                 if (cp->server->clients.find(id) != cp->server->clients.end())
                 {
                     auto client = cp->server->clients[id];
-                    client->update();
+                    client->update(client);
                 }
                 else
                 {

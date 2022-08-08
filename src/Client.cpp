@@ -32,6 +32,8 @@ namespace ClassicServer
         Z = 64 * 32;
         Yaw = 0;
         Pitch = 0;
+
+        update_thread = create_scopeptr<std::thread>(Client::update, this);
     }
     Client::~Client()
     {
@@ -41,6 +43,7 @@ namespace ClassicServer
 #else
         close(socket);
 #endif
+        update_thread->join();
     }
 
     void Client::process_packet(RefPtr<Network::ByteBuffer> packet)
@@ -411,18 +414,18 @@ namespace ClassicServer
         server->client_mutex.unlock();
     }
 
-    void Client::update()
+    void Client::update(Client* client)
     {
-        if (connected)
+        while (client->connected)
         {
-            receive();
+            client->receive();
 
-            for (auto p : packetsIn)
-                process_packet(p);
+            for (auto p : client->packetsIn)
+                client->process_packet(p);
 
-            packetsIn.clear();
+            client->packetsIn.clear();
 
-            send();
+            client->send();
         }
     }
 
