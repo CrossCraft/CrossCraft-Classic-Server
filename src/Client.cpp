@@ -131,6 +131,7 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
             std::string message = username + ": " + msg;
 
             std::cout << message << std::endl;
+            SC_APP_INFO("{}", message);
             memcpy(ptr->Message.contents, message.c_str(), STRING_LENGTH);
 
             server->broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
@@ -359,6 +360,7 @@ spawn:
 
     auto greeter2 = "&e" + username + " joined the game";
     std::cout << greeter2 << std::endl;
+    SC_APP_INFO("{}", greeter2);
     memcpy(ptr8->Message.contents, greeter2.c_str(),
            greeter2.length() < STRING_LENGTH ? greeter2.length()
                                              : STRING_LENGTH);
