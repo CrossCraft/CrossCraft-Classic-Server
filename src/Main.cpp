@@ -38,6 +38,7 @@ class GameApplication : public Core::Application {
 
         Utilities::Logger::get_app_log()->std_output = false;
         Utilities::Logger::get_app_log()->flush_output = true;
+        Utilities::Logger::get_app_log()->include_timestamp = true;
 
         state = create_refptr<MainState>();
         this->set_state(state);
