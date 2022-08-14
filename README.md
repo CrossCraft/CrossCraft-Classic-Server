@@ -5,7 +5,9 @@ A Minecraft Server compatible with CrossCraft Classic and all standard Minecraft
 
 CrossCraft-Classic is a project that aims to recreate Minecraft Java Edition: Classic without looking at any of the source code of the original application and without using the original copyrighted assets. All knowledge is figured out with an understanding of in-game mechanics and is approximated to be as close as possible to the original.
 
-The CrossCraft-Classic-Server is available on Windows, Mac, and Linux
+The CrossCraft-Classic-Server is available on Windows, Mac, and Linux.
+
+We are not associated with Mojang or Microsoft.
 
 ## Download
 
