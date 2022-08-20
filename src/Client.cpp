@@ -88,6 +88,9 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
             return;
         }
 
+        if (server->ops.is_OPned(ip))
+            this->isOP = true;
+
         bool dupe = false;
         for (auto &c : server->clients) {
             if (c.second->username == username &&

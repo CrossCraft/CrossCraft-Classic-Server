@@ -5,15 +5,18 @@
 #include <Core/Application.hpp>
 #include <map>
 #include "ClientPool.hpp"
+#include "OPList.hpp"
 
-namespace ClassicServer {
-using namespace Stardust_Celeste;
+namespace ClassicServer
+{
+  using namespace Stardust_Celeste;
 
-class Client;
-class ClientPool;
-class World;
+  class Client;
+  class ClientPool;
+  class World;
 
-class Server {
+  class Server
+  {
   public:
     Server();
     ~Server();
@@ -34,6 +37,7 @@ class Server {
     ScopePtr<World> world;
 
     BanList bans;
+    OPList ops;
 
     std::string key;
     bool stopping = false;
@@ -46,5 +50,5 @@ class Server {
     int pingCounter;
     ScopePtr<std::thread> listener_thread;
     ScopePtr<std::thread> command_thread;
-};
+  };
 } // namespace ClassicServer
