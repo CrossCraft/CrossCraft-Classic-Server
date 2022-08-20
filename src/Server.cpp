@@ -37,7 +37,7 @@ Server::Server() {
     int flags = fcntl(listener_socket, F_GETFL, 0);
 
     flags = (false) ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
-    fcntl(my_socket, F_SETFL, flags);
+    fcntl(listener_socket, F_SETFL, flags);
 #endif
 
     if (bind(listener_socket, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) <
@@ -51,11 +51,10 @@ Server::Server() {
 
     setsockopt(listener_socket, IPPROTO_TCP, TCP_NODELAY, (char *)&flag,
                sizeof(int));
-    
+
     if (::listen(listener_socket, 1) < 0) {
-        throw std::runtime_error(
-            "Fatal: Could not listen on socket. Errno: " +
-            std::to_string(errno));
+        throw std::runtime_error("Fatal: Could not listen on socket. Errno: " +
+                                 std::to_string(errno));
     }
 
     world = create_scopeptr<World>(this);
