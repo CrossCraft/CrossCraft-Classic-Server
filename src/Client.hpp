@@ -13,7 +13,7 @@ namespace ClassicServer
   class Client
   {
   public:
-    Client(int socket, Server *server, int pid);
+    Client(int socket, std::string clientIP, Server *server, int pid);
     ~Client();
 
     static void update(Client* client);
@@ -25,6 +25,7 @@ namespace ClassicServer
 
     int PlayerID;
     std::string username;
+    std::string ip;
     bool connected;
     bool isOP;
 

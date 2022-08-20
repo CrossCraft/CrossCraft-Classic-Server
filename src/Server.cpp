@@ -273,12 +273,6 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
             Outgoing::createOutgoingPacket(ptr3.get()));
         clients[kicked]->send();
         clients[kicked]->connected = false;
-    } else if (firstArg == "/unban" && op) {
-        auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
-
-        if (bans.is_banned(secondArg)) {
-            bans.unban(secondArg);
-        }
     } else if (firstArg == "/op" && op) {
         auto secondArg = remaining.substr(0, remaining.find_first_of(" "));
 
@@ -374,7 +368,7 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
             Outgoing::createOutgoingPacket(ptr3.get()));
         clients[kicked]->send();
         clients[kicked]->connected = false;
-        bans.add_ban(secondArg);
+        bans.add_ban(clients[kicked]->ip);
     } else if (firstArg == "/stop" && op) {
         auto reason = "&6Server is stopping!";
         auto ptr = create_refptr<Outgoing::Disconnect>();
@@ -594,13 +588,12 @@ auto Server::connection_listener(Server *server) -> void {
         if (conn < 0) {
             continue;
         }
-
-        SC_APP_INFO("New Connection from " +
-                    std::string((inet_ntoa(socketAddress.sin_addr))) +
+        auto clientIP = std::string((inet_ntoa(socketAddress.sin_addr)));
+        SC_APP_INFO("New Connection from " + clientIP +
                     " on port " +
                     std::to_string(ntohs(socketAddress.sin_port)));
 
-        auto client = new Client(conn, server, server->id_count);
+        auto client = new Client(conn, clientIP, server, server->id_count);
         std::lock_guard lg(server->client_mutex);
         server->clients.emplace(server->id_count++, client);
     }

@@ -9,11 +9,12 @@
 
 namespace ClassicServer {
 
-Client::Client(int socket, Server *server, int pid) {
+Client::Client(int socket, std::string clientIP, Server *server, int pid) {
     this->PlayerID = pid;
     this->socket = socket;
     this->server = server;
     this->isOP = false;
+    this->ip = clientIP;
 
     SC_APP_INFO("Client Created!");
     connected = true;
@@ -73,7 +74,7 @@ void Client::process_packet(RefPtr<Network::ByteBuffer> packet) {
             }
         }
 
-        if (server->bans.is_banned(username)) {
+        if (server->bans.is_banned(ip)) {
             auto ptr = create_refptr<Outgoing::Disconnect>();
             ptr->PacketID = Outgoing::OutPacketTypes::eDisconnect;
             memset(ptr->Reason.contents, 0x20, STRING_LENGTH);
