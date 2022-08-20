@@ -31,11 +31,13 @@ auto World::auto_save(World *wrld) -> void {
     }
 }
 
+glm::vec3 world_size;
 World::World(Server *server) {
+    world_size = { 256, 64, 256 };
     worldData = reinterpret_cast<uint8_t *>(
         calloc(256 * 64 * 256 + 4, sizeof(uint8_t)));
 
-    uint32_t size = 256 * 64 * 256;
+    uint32_t size = world_size.x * world_size.y * world_size.z;
     size = HostToNetwork4(&size);
     memcpy(worldData, &size, 4);
 
@@ -49,11 +51,9 @@ auto World::start_autosave() -> void {
 
 auto World::spawn() -> void {}
 
-glm::vec3 world_size;
 auto World::load_world() -> bool {
     gzFile save_file = gzopen("save.ccc", "rb");
     gzrewind(save_file);
-
     int version = 0;
     gzread(save_file, &version, sizeof(int) * 1);
 
@@ -72,6 +72,11 @@ auto World::load_world() -> bool {
                     worldData[idx_destiny] = temp[idx_source];
                 }
 
+
+        uint32_t size = world_size.x * world_size.y * world_size.z;
+        size = HostToNetwork4(&size);
+        memcpy(worldData, &size, 4);
+
         free(temp);
     }
     else if (version == 3)
@@ -82,11 +87,16 @@ auto World::load_world() -> bool {
             worldData,
             world_size.x * world_size.y * world_size.z + 4);
 
-        gzread(save_file, worldData + 4,
+        gzread(save_file, (uint8_t*)(worldData + 4),
             world_size.x * world_size.y * world_size.z);
         gzclose(save_file);
 
-        (*(int*)&worldData[0]) = world_size.x * world_size.y * world_size.z;
+        uint32_t size = world_size.x * world_size.y * world_size.z;
+        size = HostToNetwork4(&size);
+        memcpy(worldData, &size, 4);
+    }
+    else {
+        return false;
     }
     return true;
 }
@@ -97,8 +107,8 @@ auto World::save() -> void {
     if (save_file != nullptr) {
         const int save_version = 3;
 
-        gzwrite(save_file, &world_size, sizeof(world_size));
         gzwrite(save_file, &save_version, 1 * sizeof(int));
+        gzwrite(save_file, &world_size, sizeof(world_size));
         gzwrite(save_file, worldData + 4, world_size.x * world_size.y * world_size.z);
         gzclose(save_file);
     }
