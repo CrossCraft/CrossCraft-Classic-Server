@@ -49,6 +49,7 @@ auto World::start_autosave() -> void {
 
 auto World::spawn() -> void {}
 
+glm::vec3 world_size;
 auto World::load_world() -> bool {
     gzFile save_file = gzopen("save.ccc", "rb");
     gzrewind(save_file);
@@ -75,7 +76,6 @@ auto World::load_world() -> bool {
     }
     else if (version == 3)
     {
-        glm::vec3 world_size;
         gzread(save_file, &world_size, sizeof(world_size));
 
         worldData = (uint8_t*)realloc(
@@ -94,25 +94,14 @@ auto World::load_world() -> bool {
 auto World::save() -> void {
     gzFile save_file = gzopen("save.ccc", "wb");
 
-    uint8_t *temp = (uint8_t *)malloc(256 * 64 * 256);
-
-    for (auto x = 0; x < 256; x++)
-        for (auto y = 0; y < 64; y++)
-            for (auto z = 0; z < 256; z++) {
-                auto idx_source = (y * 256 * 256) + (z * 256) + x + 4;
-
-                auto idx_destiny = (x * 256 * 64) + (z * 64) + y;
-                temp[idx_destiny] = worldData[idx_source];
-            }
-
     if (save_file != nullptr) {
-        const int save_version = 1;
+        const int save_version = 3;
+
+        gzwrite(save_file, &world_size, sizeof(world_size));
         gzwrite(save_file, &save_version, 1 * sizeof(int));
-        gzwrite(save_file, temp, 256 * 64 * 256);
+        gzwrite(save_file, worldData + 4, world_size.x * world_size.y * world_size.z);
         gzclose(save_file);
     }
-
-    free(temp);
 }
 
 World::~World() {
