@@ -21,7 +21,7 @@ inline uint32_t HostToNetwork4(const void *a_Value) {
 }
 
 auto World::auto_save(World *wrld) -> void {
-    while (true) {
+    while (!wrld->serv->stopping) {
         SC_APP_INFO("Server: Autosaving...");
         wrld->save();
         SC_APP_INFO("Server: Done!");

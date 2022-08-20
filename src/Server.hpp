@@ -31,15 +31,15 @@ class Server {
     std::mutex client_mutex;
     std::map<int, Client *> clients;
 
-    RefPtr<World> world;
+    ScopePtr<World> world;
 
     BanList bans;
 
     std::string key;
+    bool stopping = false;
 
   private:
-    bool stopping = false;
-    int stop_tcount = 20;
+    int stop_tcount = 0;
     int id_count = 1;
     int listener_socket;
 

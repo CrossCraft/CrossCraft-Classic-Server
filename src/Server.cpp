@@ -30,6 +30,16 @@ Server::Server() {
                sizeof(int));
 #endif
 
+#ifdef _WIN32
+    unsigned long mode = 1;
+    ioctlsocket(listener_socket, FIONBIO, &mode);
+#else
+    int flags = fcntl(listener_socket, F_GETFL, 0);
+
+    flags = (false) ? (flags & ~O_NONBLOCK) : (flags | O_NONBLOCK);
+    fcntl(my_socket, F_SETFL, flags);
+#endif
+
     if (bind(listener_socket, (struct sockaddr *)&sockaddr, sizeof(sockaddr)) <
         0) {
         throw std::runtime_error(
@@ -41,8 +51,14 @@ Server::Server() {
 
     setsockopt(listener_socket, IPPROTO_TCP, TCP_NODELAY, (char *)&flag,
                sizeof(int));
+    
+    if (::listen(listener_socket, 1) < 0) {
+        throw std::runtime_error(
+            "Fatal: Could not listen on socket. Errno: " +
+            std::to_string(errno));
+    }
 
-    world = create_refptr<World>(this);
+    world = create_scopeptr<World>(this);
     world->cfg = Config::loadConfig();
 
     FILE *fptr = fopen("save.ccc", "r");
@@ -88,6 +104,9 @@ Server::~Server() {
 #else
     ::close(listener_socket);
 #endif
+    world.release();
+    listener_thread->join();
+    command_thread->join();
 }
 
 void Server::broadcast_packet(RefPtr<Network::ByteBuffer> p) {
@@ -148,6 +167,8 @@ void Server::update(float dt, Core::Application *app) {
         delete clients[id];
         clients.erase(id);
     }
+    idForDeletion.clear();
+    idForDeletion.shrink_to_fit();
     client_mutex.unlock();
 
     pingCounter++;
@@ -200,9 +221,7 @@ void Server::update(float dt, Core::Application *app) {
                 clients.erase(id);
             }
 
-            if (stop_tcount < -50) {
-                app->exit();
-            }
+            app->exit();
         }
     }
 }
@@ -534,7 +553,7 @@ void Server::process_command(std::string cmd, bool op, std::string user) {
 
 auto Server::command_listener(Server *server) -> void {
 
-    while (true) {
+    while (!server->stopping) {
         char cmd[256];
         memset(cmd, 0, 256);
 
@@ -562,28 +581,18 @@ auto Server::command_listener(Server *server) -> void {
 }
 
 auto Server::connection_listener(Server *server) -> void {
-    while (true) {
-        SC_APP_INFO("Server: Ready and Listening For Connections!");
-
+    while (!server->stopping) {
         sockaddr_in socketAddress{};
         socketAddress.sin_family = AF_INET;
         socketAddress.sin_addr.s_addr = INADDR_ANY;
         socketAddress.sin_port = htons(DEFAULT_PORT);
 
-        if (::listen(server->listener_socket, 1) < 0) {
-            throw std::runtime_error(
-                "Fatal: Could not listen on socket. Errno: " +
-                std::to_string(errno));
-        }
-
         auto addressLen = sizeof(socketAddress);
         auto conn = static_cast<int>(accept(server->listener_socket,
                                             (struct sockaddr *)&socketAddress,
                                             (socklen_t *)&addressLen));
-        SC_APP_INFO("Connecting...");
 
         if (conn < 0) {
-            SC_APP_ERROR("COULD NOT CONNECT!");
             continue;
         }
 
@@ -595,7 +604,6 @@ auto Server::connection_listener(Server *server) -> void {
         auto client = new Client(conn, server, server->id_count);
         std::lock_guard lg(server->client_mutex);
         server->clients.emplace(server->id_count++, client);
-        // server->cp->add_client(server->id_count++);
     }
 }
 } // namespace ClassicServer
