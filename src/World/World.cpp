@@ -56,24 +56,38 @@ auto World::load_world() -> bool {
     int version = 0;
     gzread(save_file, &version, sizeof(int) * 1);
 
-    if (version != 1)
-        return false;
+    if (version == 1) {
+        uint8_t* temp = (uint8_t*)malloc(256 * 64 * 256);
 
-    uint8_t *temp = (uint8_t *)malloc(256 * 64 * 256);
+        gzread(save_file, temp, 256 * 64 * 256);
+        gzclose(save_file);
 
-    gzread(save_file, temp, 256 * 64 * 256);
-    gzclose(save_file);
+        for (auto x = 0; x < 256; x++)
+            for (auto y = 0; y < 64; y++)
+                for (auto z = 0; z < 256; z++) {
+                    auto idx_destiny = (y * 256 * 256) + (z * 256) + x + 4;
 
-    for (auto x = 0; x < 256; x++)
-        for (auto y = 0; y < 64; y++)
-            for (auto z = 0; z < 256; z++) {
-                auto idx_destiny = (y * 256 * 256) + (z * 256) + x + 4;
+                    auto idx_source = (x * 256 * 64) + (z * 64) + y;
+                    worldData[idx_destiny] = temp[idx_source];
+                }
 
-                auto idx_source = (x * 256 * 64) + (z * 64) + y;
-                worldData[idx_destiny] = temp[idx_source];
-            }
+        free(temp);
+    }
+    else if (version == 3)
+    {
+        glm::vec3 world_size;
+        gzread(save_file, &world_size, sizeof(world_size));
 
-    free(temp);
+        worldData = (uint8_t*)realloc(
+            worldData,
+            world_size.x * world_size.y * world_size.z + 4);
+
+        gzread(save_file, worldData + 4,
+            world_size.x * world_size.y * world_size.z);
+        gzclose(save_file);
+
+        (*(int*)&worldData[0]) = world_size.x * world_size.y * world_size.z;
+    }
     return true;
 }
 
