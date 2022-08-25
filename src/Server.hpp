@@ -1,6 +1,5 @@
 #pragma once
 #include "Banlist.hpp"
-#include "ClientPool.hpp"
 #include "OPList.hpp"
 #include "Utility.hpp"
 #include "World/World.hpp"

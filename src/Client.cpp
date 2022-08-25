@@ -408,6 +408,8 @@ void Client::update(Client *client) {
         client->packetsIn.clear();
 
         client->send();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 

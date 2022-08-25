@@ -202,7 +202,7 @@ void Server::update(float dt, Core::Application *app) {
         broadcast_packet(Outgoing::createOutgoingPacket(ptr.get()));
     }
 
-    std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(100));
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
     if (stopping) {
 
@@ -544,6 +544,8 @@ auto Server::command_listener(Server *server) -> void {
             server->broadcast_packet(
                 Outgoing::createOutgoingPacket(ptr2.get()));
         }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 }
 
