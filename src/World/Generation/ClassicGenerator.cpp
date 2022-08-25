@@ -32,9 +32,9 @@ auto ClassicGenerator::generate(World *wrld) -> void {
 
     // Noise Map Settings
     NoiseUtil::NoiseSettings settings = {2,    1.0f, 1.75f, 0.75f,
-                                         3.5f, 0.0f, 0.42f,  0.6f};
+                                         3.5f, 0.0f, 0.42f, 0.6f};
     NoiseUtil::NoiseSettings settings2 = {1,    1.0f, 4.0f, 0.42f,
-                                          4.5f, 0.0f, 0.0f,  0.85f};
+                                          4.5f, 0.0f, 0.0f, 0.85f};
 
     // Generate HMAP
     for (int x = 0; x < 256; x++) {

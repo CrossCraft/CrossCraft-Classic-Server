@@ -1,22 +1,20 @@
 #pragma once
 #include "Banlist.hpp"
+#include "ClientPool.hpp"
+#include "OPList.hpp"
 #include "Utility.hpp"
 #include "World/World.hpp"
 #include <Core/Application.hpp>
 #include <map>
-#include "ClientPool.hpp"
-#include "OPList.hpp"
 
-namespace ClassicServer
-{
-  using namespace Stardust_Celeste;
+namespace ClassicServer {
+using namespace Stardust_Celeste;
 
-  class Client;
-  class ClientPool;
-  class World;
+class Client;
+class ClientPool;
+class World;
 
-  class Server
-  {
+class Server {
   public:
     Server();
     ~Server();
@@ -50,5 +48,5 @@ namespace ClassicServer
     int pingCounter;
     ScopePtr<std::thread> listener_thread;
     ScopePtr<std::thread> command_thread;
-  };
+};
 } // namespace ClassicServer

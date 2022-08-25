@@ -44,9 +44,7 @@ class GameApplication : public Core::Application {
         this->set_state(state);
     }
 
-    ~GameApplication() {
-        state.reset();
-    }
+    ~GameApplication() { state.reset(); }
 
   private:
     RefPtr<MainState> state;

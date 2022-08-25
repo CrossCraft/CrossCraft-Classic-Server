@@ -3,44 +3,36 @@
 #include <sstream>
 #include <string>
 
-namespace ClassicServer
-{
+namespace ClassicServer {
 
-    struct Config
-    {
-        bool compat;
+struct Config {
+    bool compat;
 
-        inline static auto loadConfig() -> Config
-        {
-            Config config;
-            config.compat = false;
+    inline static auto loadConfig() -> Config {
+        Config config;
+        config.compat = false;
 
-            std::ifstream file("config.cfg");
+        std::ifstream file("config.cfg");
 
-            if (file.is_open())
-            {
-                std::string line;
+        if (file.is_open()) {
+            std::string line;
 
-                while (std::getline(file, line, ':'))
-                {
-                    if (line == "compat")
-                    {
-                        std::getline(file, line);
-                        std::stringstream str(line);
+            while (std::getline(file, line, ':')) {
+                if (line == "compat") {
+                    std::getline(file, line);
+                    std::stringstream str(line);
 
-                        str >> config.compat;
-                    }
+                    str >> config.compat;
                 }
             }
-            else
-            {
-                std::ofstream file2("config.cfg");
-                file2 << "compat:0" << std::endl;
-                file2.close();
-            }
-
-            return config;
+        } else {
+            std::ofstream file2("config.cfg");
+            file2 << "compat:0" << std::endl;
+            file2.close();
         }
-    };
 
-} // namespace CrossCraft
+        return config;
+    }
+};
+
+} // namespace ClassicServer

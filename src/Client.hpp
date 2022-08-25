@@ -4,19 +4,17 @@
 #include <iostream>
 #include <string>
 
-namespace ClassicServer
-{
-  using namespace Stardust_Celeste;
+namespace ClassicServer {
+using namespace Stardust_Celeste;
 
-  class Server;
+class Server;
 
-  class Client
-  {
+class Client {
   public:
     Client(int socket, std::string clientIP, Server *server, int pid);
     ~Client();
 
-    static void update(Client* client);
+    static void update(Client *client);
 
     std::vector<RefPtr<Network::ByteBuffer>> packetsIn;
 
@@ -44,5 +42,5 @@ namespace ClassicServer
     void process_packet(RefPtr<Network::ByteBuffer> packet);
 
     ScopePtr<std::thread> update_thread;
-  };
+};
 } // namespace ClassicServer
