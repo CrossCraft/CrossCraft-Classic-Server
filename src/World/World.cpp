@@ -33,7 +33,7 @@ auto World::auto_save(World *wrld) -> void {
 
 glm::vec3 world_size;
 World::World(Server *server) {
-    world_size = { 256, 64, 256 };
+    world_size = {256, 64, 256};
     worldData = reinterpret_cast<uint8_t *>(
         calloc(256 * 64 * 256 + 4, sizeof(uint8_t)));
 
@@ -51,14 +51,15 @@ auto World::start_autosave() -> void {
 
 auto World::spawn() -> void {}
 
+gzFile save_file;
 auto World::load_world() -> bool {
-    gzFile save_file = gzopen("save.ccc", "rb");
+    save_file = gzopen("save.ccc", "rb");
     gzrewind(save_file);
     int version = 0;
     gzread(save_file, &version, sizeof(int) * 1);
 
     if (version == 1) {
-        uint8_t* temp = (uint8_t*)malloc(256 * 64 * 256);
+        uint8_t *temp = (uint8_t *)malloc(256 * 64 * 256);
 
         gzread(save_file, temp, 256 * 64 * 256);
         gzclose(save_file);
@@ -72,46 +73,48 @@ auto World::load_world() -> bool {
                     worldData[idx_destiny] = temp[idx_source];
                 }
 
-
         uint32_t size = world_size.x * world_size.y * world_size.z;
         size = HostToNetwork4(&size);
         memcpy(worldData, &size, 4);
 
         free(temp);
-    }
-    else if (version == 3)
-    {
+    } else if (version == 3) {
         gzread(save_file, &world_size, sizeof(world_size));
 
-        worldData = (uint8_t*)realloc(
-            worldData,
-            world_size.x * world_size.y * world_size.z + 4);
+        worldData = (uint8_t *)realloc(
+            worldData, world_size.x * world_size.y * world_size.z + 4);
 
-        gzread(save_file, (uint8_t*)(worldData + 4),
-            world_size.x * world_size.y * world_size.z);
+        gzread(save_file, (uint8_t *)(worldData + 4),
+               world_size.x * world_size.y * world_size.z);
         gzclose(save_file);
 
         uint32_t size = world_size.x * world_size.y * world_size.z;
         size = HostToNetwork4(&size);
         memcpy(worldData, &size, 4);
-    }
-    else {
+    } else {
         return false;
     }
+
+    save_file = gzopen("save.ccc", "wb");
     return true;
 }
 
 auto World::save() -> void {
-    gzFile save_file = gzopen("save.ccc", "wb");
+    // Seek to 0
+    gzseek(save_file, 0, SEEK_SET);
 
     if (save_file != nullptr) {
         const int save_version = 3;
 
         gzwrite(save_file, &save_version, 1 * sizeof(int));
         gzwrite(save_file, &world_size, sizeof(world_size));
-        gzwrite(save_file, worldData + 4, world_size.x * world_size.y * world_size.z);
+        gzwrite(save_file, worldData + 4,
+                world_size.x * world_size.y * world_size.z);
         gzclose(save_file);
     }
+
+    // Flush file
+    gzflush(save_file, Z_FINISH);
 }
 
 World::~World() {
@@ -278,13 +281,13 @@ auto World::update_check(World *wrld, int blkr, glm::ivec3 chk) -> void {
                 update_nearby_blocks({chk.x, chk.y + 1, chk.z});
                 updated.push_back(chk);
             }
-        }
-        else if (blk == Block::Still_Lava || blk == Block::Lava || blk == Block::Water || blk == Block::Still_Water) {
+        } else if (blk == Block::Still_Lava || blk == Block::Lava ||
+                   blk == Block::Water || blk == Block::Still_Water) {
             if (blkr == Block::Gravel || blkr == Block::Sand) {
                 setBlock(chk.x, chk.y + 1, chk.z, Block::Air);
                 setBlock(chk.x, chk.y, chk.z, blkr);
 
-                update_nearby_blocks({ chk.x, chk.y + 1, chk.z });
+                update_nearby_blocks({chk.x, chk.y + 1, chk.z});
                 updated.push_back(chk);
             }
         }
