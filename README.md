@@ -13,7 +13,7 @@ We are not associated with Mojang or Microsoft.
 
 Check the [releases panel](https://github.com/CrossCraft/CrossCraft-Classic-Server/releases) on the side or use the link.
 
-The most up-to-date version (potentially containing more bugs or half-implemented features) will be in the latest Actions build. You can find these in the [actions tab](https://github.com/CrossCraft/CrossCraft-Classic-Server/actions). At the bottom of each action run is the published artifacts for download.
+The most up-to-date version (potentially containing more bugs or half-implemented features) will be in the latest Actions build.
 
 ## License
 
