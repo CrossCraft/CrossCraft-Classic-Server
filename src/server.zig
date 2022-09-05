@@ -37,7 +37,7 @@ pub fn init() !void {
 pub fn run() !void {
     while (true) {
         // Sleep 50ms (20 TPS)
-        std.os.nanosleep(0, 50 * 1000 * 1000);
+        std.time.sleep(50 * 1000 * 1000);
 
         // TODO: Update World
         // TODO: Update All Clients (broadcast packets, etc.)
