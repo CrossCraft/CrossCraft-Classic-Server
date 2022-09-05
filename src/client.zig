@@ -1,6 +1,7 @@
 const std = @import("std");
 const network = @import("network");
 const Self = @This();
+const protocol = @import("protocol.zig");
 
 /// Connection State
 conn: network.Socket,
@@ -8,12 +9,14 @@ is_connected: bool,
 
 /// Current packet processing buffer
 packet_buffer: [131]u8,
+allocator: *std.mem.Allocator,
 
 /// Username of client
 username: [16]u8,
 // TODO: Track IP Data
 // TODO: Track Player Position Data
 // TODO: Track Player ID number
+is_op: u8,
 
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
@@ -86,8 +89,33 @@ fn copyUsername(self: *Self) void {
     }
 }
 
-/// Process 
+/// Send Packet from buffer
+fn send(self: *Self, buf: []u8) !void {
+    try self.conn.writer().writeAll(buf);
+}
+
+/// Send initial packet spam
+fn send_init(self: *Self) !void {
+
+    // Send Server Identification
+    var buf = try protocol.create_packet(self.allocator, protocol.Packet.ServerIdentification);
+    try protocol.make_server_identification(buf, "CrossCraft", "Welcome!", self.is_op);
+    try self.send(buf);
+    self.allocator.free(buf);
+    std.debug.print("Server ID Sent!\n", .{});
+
+    //TODO: Send Level Init
+    //TODO: Send Level Data
+    //TODO: Send Level Finalize
+    //TODO: Send Message
+    //TODO: Spawn Player
+}
+
+/// Process
 fn process(self: *Self) !void {
+    if (!self.is_connected)
+        return;
+
     switch (@intToEnum(PacketType, self.packet_buffer[0])) {
         PacketType.PlayerIdentification => {
             if (self.packet_buffer[1] != 7) {
@@ -105,8 +133,8 @@ fn process(self: *Self) !void {
             // TODO: Check IP Ban List
             // TODO: Check not currently connected
             // TODO: Check server not full
-            // TODO: Send initial response and world data
 
+            try self.send_init();
         },
         PacketType.SetBlock => {},
         PacketType.PositionAndOrientation => {},

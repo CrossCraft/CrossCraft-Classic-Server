@@ -5,7 +5,7 @@ const Client = @import("client.zig");
 /// Fixed Buffer Allocation
 var ram_buffer: [16 * 1000 * 1000]u8 = undefined;
 var allocator: std.mem.Allocator = undefined;
-var fba : std.heap.FixedBufferAllocator = undefined;
+var fba: std.heap.FixedBufferAllocator = undefined;
 
 /// Server Socket
 var socket: network.Socket = undefined;
@@ -56,10 +56,12 @@ pub fn run() !void {
         const client = try allocator.create(Client);
         client.* = Client{
             .conn = conn,
+            .allocator = &allocator,
             .is_connected = true,
             .handle_frame = async client.handle(),
             .packet_buffer = undefined,
             .username = undefined,
+            .is_op = 0,
         };
     }
 }
