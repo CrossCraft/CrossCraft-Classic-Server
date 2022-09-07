@@ -102,9 +102,13 @@ fn send_init(self: *Self) !void {
     try protocol.make_server_identification(buf, "CrossCraft", "Welcome!", self.is_op);
     try self.send(buf);
     self.allocator.free(buf);
-    std.debug.print("Server ID Sent!\n", .{});
 
-    //TODO: Send Level Init
+    // Send Level Initialization
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelInitialize);
+    protocol.make_level_initialize(buf);
+    try self.send(buf);
+    self.allocator.free(buf);
+
     //TODO: Send Level Data
     //TODO: Send Level Finalize
     //TODO: Send Message
