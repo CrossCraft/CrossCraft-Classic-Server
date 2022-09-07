@@ -9,7 +9,6 @@ is_connected: bool,
 
 /// Current packet processing buffer
 packet_buffer: [131]u8,
-allocator: *std.mem.Allocator,
 
 /// Username of client
 username: [16]u8,
@@ -136,7 +135,15 @@ fn process(self: *Self) !void {
             // TODO: Check Ban List
             // TODO: Check IP Ban List
             // TODO: Check not currently connected
-            // TODO: Check server not full
+            
+            if(self.kick_max){
+                std.debug.print("Client tried joining when server is full! Terminating Connection.\n", .{});
+
+                // TODO: Send disconnect
+
+                self.is_connected = false;
+                return;
+            }
 
             try self.send_init();
         },

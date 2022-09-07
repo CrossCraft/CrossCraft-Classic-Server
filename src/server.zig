@@ -61,6 +61,8 @@ pub fn run() !void {
             .handle_frame = async client.handle(),
             .packet_buffer = undefined,
             .username = undefined,
+            .is_loaded = false,
+            .kick_max = false,
             .is_op = 0,
         };
     }
