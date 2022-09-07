@@ -15,7 +15,10 @@ username: [16]u8,
 // TODO: Track IP Data
 // TODO: Track Player Position Data
 // TODO: Track Player ID number
+kick_max: bool,
+is_loaded: bool,
 is_op: u8,
+allocator: *std.mem.Allocator,
 
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
