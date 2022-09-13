@@ -12,13 +12,19 @@ packet_buffer: [131]u8,
 
 /// Username of client
 username: [16]u8,
+
 // TODO: Track IP Data
-// TODO: Track Player Position Data
-// TODO: Track Player ID number
+
 kick_max: bool,
 is_loaded: bool,
 is_op: u8,
 allocator: *std.mem.Allocator,
+id: u8,
+x: u16,
+y: u16,
+z: u16,
+yaw: u8,
+pitch: u8,
 
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
@@ -112,9 +118,38 @@ fn send_init(self: *Self) !void {
     self.allocator.free(buf);
 
     //TODO: Send Level Data
-    //TODO: Send Level Finalize
-    //TODO: Send Message
-    //TODO: Spawn Player
+
+    // Send Level Finalization
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelFinalize);
+    try protocol.make_level_finalize(buf, 256, 64, 256);
+    try self.send(buf);
+    self.allocator.free(buf);
+
+    // Send Welcome Message
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.Message);
+    try protocol.make_message(buf, 0, "&eWelcome to the server!");
+    try self.send(buf);
+    self.allocator.free(buf);
+
+    //Spawn Player
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
+    try protocol.make_spawn_player(buf, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
+    try self.send(buf);
+    self.allocator.free(buf);
+
+    // Send Update User Types
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.UpdateUserType);
+    protocol.make_user_update(buf, self.is_op);
+    try self.send(buf);
+    self.allocator.free(buf);
+}
+
+fn disconnect(self: *Self, reason: []const u8) !void {
+    var buf = try protocol.create_packet(self.allocator, protocol.Packet.Disconnect);
+    try protocol.make_diconnect(buf, reason);
+    try self.send(buf);
+    self.allocator.free(buf);
+    self.is_connected = false;
 }
 
 /// Process
@@ -126,10 +161,7 @@ fn process(self: *Self) !void {
         PacketType.PlayerIdentification => {
             if (self.packet_buffer[1] != 7) {
                 std.debug.print("Error: Wrong protocol version! Is your client up to date? Terminating Connection.\n", .{});
-
-                // TODO: Send disconnect
-
-                self.is_connected = false;
+                try self.disconnect("Invalid protocol version!");
                 return;
             }
 
@@ -137,14 +169,11 @@ fn process(self: *Self) !void {
 
             // TODO: Check Ban List
             // TODO: Check IP Ban List
-            // TODO: Check not currently connected
-            
-            if(self.kick_max){
+            // TODO: Check Duplicates
+
+            if (self.kick_max) {
                 std.debug.print("Client tried joining when server is full! Terminating Connection.\n", .{});
-
-                // TODO: Send disconnect
-
-                self.is_connected = false;
+                try self.disconnect("Server is full!");
                 return;
             }
 
@@ -166,6 +195,8 @@ pub fn handle(self: *Self) !void {
         try self.receive();
         try self.process();
     }
+
+    std.debug.print("Client connection closed!\n", .{});
 }
 
 /// Deinits the client

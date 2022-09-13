@@ -1,6 +1,7 @@
 const std = @import("std");
 const network = @import("network");
 const Client = @import("client.zig");
+const world = @import("world.zig");
 
 /// Fixed Buffer Allocation
 var ram_buffer: [16 * 1000 * 1000]u8 = undefined;
@@ -12,12 +13,15 @@ var socket: network.Socket = undefined;
 
 /// Initialize Server
 pub fn init() !void {
+
     // Initialize Network
     try network.init();
 
     // Setup Fixed Buffer Allocator
     fba = std.heap.FixedBufferAllocator.init(&ram_buffer);
     allocator = fba.allocator();
+
+    try world.init(&allocator);
 
     // Create brand new socket handle
     socket = try network.Socket.create(.ipv4, .tcp);
@@ -45,7 +49,7 @@ pub fn run() !void {
         // Check Client
         var conn = socket.accept() catch |err| switch (err) {
             error.WouldBlock => continue,
-            else => return,
+            else => return err,
         };
 
         std.debug.print("New Client @ {}\n", .{try conn.getRemoteEndPoint()});
@@ -64,6 +68,12 @@ pub fn run() !void {
             .is_loaded = false,
             .kick_max = false,
             .is_op = 0,
+            .yaw = 0,
+            .pitch = 0,
+            .x = 0,
+            .y = 0,
+            .z = 0,
+            .id = 1,
         };
     }
 }
@@ -72,4 +82,5 @@ pub fn run() !void {
 pub fn deinit() void {
     socket.close();
     network.deinit();
+    world.deinit();
 }
