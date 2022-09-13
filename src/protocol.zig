@@ -69,3 +69,75 @@ pub fn make_ping(buf: []u8) void {
 pub fn make_level_initialize(buf: []u8) void {
     buf[0] = @enumToInt(Packet.LevelInitialize);
 }
+
+/// Make Level Finalize
+/// buf - Buffer to output
+/// x - World Size X
+/// y - World Size Y
+/// z - World Size Z
+pub fn make_level_finalize(buf: []u8, x: u16, y: u16, z: u16) !void {
+    buf[0] = @enumToInt(Packet.LevelFinalize);
+    var fbstream = std.io.fixedBufferStream(buf[1..]);
+    try fbstream.writer().writeIntBig(u16, x);
+    try fbstream.writer().writeIntBig(u16, y);
+    try fbstream.writer().writeIntBig(u16, z);
+}
+
+/// Make Spawn Player
+/// buf - Buffer to output
+/// pID - Player ID
+/// username - Username
+/// x - X Position
+/// y - Y Position
+/// z - Z Position
+/// yaw - Angle Yaw
+/// pitch - Angle Pitch
+pub fn make_spawn_player(buf: []u8, pID: u8, username: []const u8, x: u16, y: u16, z: u16, yaw: u8, pitch: u8) !void {
+    buf[0] = @enumToInt(Packet.SpawnPlayer);
+    buf[1] = pID;
+
+    var fbstream = std.io.fixedBufferStream(buf[2..]);
+    try fbstream.writer().writeAll(username);
+    try fbstream.writer().writeIntBig(u16, x);
+    try fbstream.writer().writeIntBig(u16, y);
+    try fbstream.writer().writeIntBig(u16, z);
+    try fbstream.writer().writeIntBig(u8, yaw);
+    try fbstream.writer().writeIntBig(u8, pitch);
+}
+
+/// Make Message
+/// buf - Buffer to output
+/// pID - Player ID
+/// message_string - Message
+pub fn make_message(buf: []u8, pID: i8, message_string: []const u8) !void {
+    buf[0] = @enumToInt(Packet.Message);
+    buf[1] = @bitCast(u8, pID);
+    var fbstream = std.io.fixedBufferStream(buf[2..]);
+    if (message_string.len < 64) {
+        try fbstream.writer().writeAll(message_string);
+    } else {
+        try fbstream.writer().writeAll(message_string[0..64]);
+    }
+}
+
+/// Make Disconnect
+/// buf - Buffer to output
+/// reason - Reason for disconnect
+pub fn make_diconnect(buf: []u8, reason: []const u8) !void {
+    buf[0] = @enumToInt(Packet.Message);
+    var fbstream = std.io.fixedBufferStream(buf[1..]);
+    if (reason.len < 64) {
+        try fbstream.writer().writeAll(reason);
+    } else {
+        try fbstream.writer().writeAll(reason[0..64]);
+    }
+}
+
+
+/// Make User Update
+/// buf - Buffer to output
+/// is_op - Is User OP?
+pub fn make_user_update(buf: []u8, is_op: u8) void {
+    buf[0] = @enumToInt(Packet.UpdateUserType);
+    buf[1] = is_op;
+}
