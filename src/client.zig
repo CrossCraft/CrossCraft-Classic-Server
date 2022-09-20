@@ -299,7 +299,28 @@ fn process(self: *Self) !void {
 
             try self.send_init();
         },
-        PacketType.SetBlock => {},
+        PacketType.SetBlock => {
+            var fbstream = std.io.fixedBufferStream(self.packet_buffer[1..]);
+            var reader = fbstream.reader();
+
+            var x: u16 = try reader.readIntBig(u16);
+            var y: u16 = try reader.readIntBig(u16);
+            var z: u16 = try reader.readIntBig(u16);
+
+            var mode: u8 = try reader.readIntBig(u8);
+            var btype: u8 = try reader.readIntBig(u8);
+
+            var idx : usize = (y * 256 * 256) + (z * 256) + x;
+
+            if(mode == 0x00){
+                //Destroy
+                world.worldData[idx] = 0;
+                _ = btype;
+            } else {
+                //Create
+                world.worldData[idx] = btype;
+            }
+        },
         PacketType.PositionAndOrientation => {},
         PacketType.Message => {},
     }
@@ -312,6 +333,7 @@ fn process(self: *Self) !void {
 pub fn handle(self: *Self) !void {
     std.debug.print("Client connected!\n", .{});
     while (self.is_connected) {
+        std.time.sleep(50 * 1000 * 1000);
         try self.receive();
         try self.process();
     }
