@@ -7,7 +7,7 @@ pub const size: usize = 256 * 64 * 256;
 pub fn init(allocator: *std.mem.Allocator) !void {
     alloc = allocator;
     worldData = try allocator.alloc(u8, 256 * 64 * 256);
-    @memset(worldData.ptr, 18, worldData.len);
+    @memset(worldData.ptr, 0, worldData.len);
 }
 
 pub fn update() void {
