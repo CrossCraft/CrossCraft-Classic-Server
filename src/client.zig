@@ -2,6 +2,7 @@ const std = @import("std");
 const network = @import("network");
 const Self = @This();
 const protocol = @import("protocol.zig");
+const world = @import("world.zig");
 
 /// Connection State
 conn: network.Socket,
@@ -102,6 +103,58 @@ fn send(self: *Self, buf: []u8) !void {
     try self.conn.writer().writeAll(buf);
 }
 
+fn compress_level(compBuf: []u8) !usize {
+
+}
+
+fn send_level(self: *Self) !void {
+    // Create Compression Buffer
+    var compBuf : []u8 = try self.allocator.alloc(u8, world.size + 4);
+    // Dealloc at end
+    defer self.allocator.free(compBuf);
+
+    // Compress and Get Length
+    var len = compress_level(); 
+
+    std.debug.print("World Size: {}\n", .{world.size});
+    std.debug.print("Compressed Length: {}\n", .{len});
+
+    // Send
+    var bytes : usize = 0;
+    while (bytes < len) {
+        // Calculate remainingBytes and count
+        var remainingBytes = len - bytes;
+        var count : usize = if(remainingBytes > 1024) 1024 else remainingBytes;
+
+        // Create Packet
+        var buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelDataChunk);
+        // Destroy Packet
+        defer self.allocator.free(buf);
+        // Blank to 0
+        @memset(buf.ptr, 0, 1028);
+
+        // Create Buffer Stream
+        var bstream = std.io.fixedBufferStream(buf);
+
+        //PID
+        try bstream.writer().writeIntBig(u8, @enumToInt(protocol.Packet.LevelDataChunk));
+        //LENGTH (0-1024)
+        try bstream.writer().writeIntBig(u16, @intCast(u16, count));
+        //BUFFER COPY
+        var startPos : usize = bytes;
+        var endPos : usize = bytes + count;
+        try bstream.writer().writeAll(compBuf[startPos..endPos]);
+
+        bytes += count;
+
+        //PERCENT
+        buf[1027] = @intCast(u8, bytes / len * 100);
+
+        //SEND
+        try self.send(buf);
+    }
+}
+
 /// Send initial packet spam
 fn send_init(self: *Self) !void {
 
@@ -117,7 +170,7 @@ fn send_init(self: *Self) !void {
     try self.send(buf);
     self.allocator.free(buf);
 
-    //TODO: Send Level Data
+    try self.send_level();
 
     // Send Level Finalization
     buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelFinalize);
