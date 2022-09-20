@@ -4,6 +4,12 @@ const Self = @This();
 const protocol = @import("protocol.zig");
 const world = @import("world.zig");
 
+const zlib = @cImport(
+    {
+        @cInclude("zlib.h");
+    }
+);
+
 /// Connection State
 conn: network.Socket,
 is_connected: bool,
@@ -104,7 +110,47 @@ fn send(self: *Self, buf: []u8) !void {
 }
 
 fn compress_level(compBuf: []u8) !usize {
+    var strm : zlib.z_stream = undefined;
+    strm.zalloc = null;
+    strm.zfree = null;
+    strm.@"opaque" = null;
 
+    var worldSize : u32 = @byteSwap(@intCast(u32, world.size));
+    strm.avail_in = 4;
+    strm.next_in = @ptrCast([*c]u8, &worldSize);
+
+    strm.avail_out = 0;
+    strm.next_out = zlib.Z_NULL;
+
+    var ret = zlib.deflateInit2(&strm, zlib.Z_BEST_COMPRESSION, zlib.Z_DEFLATED, (zlib.MAX_WBITS + 16), 8, zlib.Z_DEFAULT_STRATEGY);
+    if(ret != zlib.Z_OK)
+        return error.ZLIB_INIT_FAIL;
+    
+    strm.avail_out = @intCast(c_uint, compBuf.len);
+    strm.next_out = compBuf.ptr;
+
+    ret = zlib.deflate(&strm, zlib.Z_NO_FLUSH);
+
+    switch(ret){
+        zlib.Z_NEED_DICT => return error.ZLIB_NEED_DICT,
+        zlib.Z_DATA_ERROR => return error.ZLIB_DATA_ERROR,
+        zlib.Z_MEM_ERROR => return error.ZLIB_MEMORY_ERROR,
+        else => {}
+    }
+
+    strm.avail_in = world.size;
+    strm.next_in = world.worldData.ptr;
+    ret = zlib.deflate(&strm, zlib.Z_FINISH);
+
+    switch(ret){
+        zlib.Z_NEED_DICT => return error.ZLIB_NEED_DICT,
+        zlib.Z_DATA_ERROR => return error.ZLIB_DATA_ERROR,
+        zlib.Z_MEM_ERROR => return error.ZLIB_MEMORY_ERROR,
+        else => {}
+    }
+
+    _ = zlib.deflateEnd(&strm);
+    return strm.total_out;
 }
 
 fn send_level(self: *Self) !void {
@@ -114,7 +160,7 @@ fn send_level(self: *Self) !void {
     defer self.allocator.free(compBuf);
 
     // Compress and Get Length
-    var len = compress_level(); 
+    var len = try compress_level(compBuf); 
 
     std.debug.print("World Size: {}\n", .{world.size});
     std.debug.print("Compressed Length: {}\n", .{len});
@@ -157,6 +203,9 @@ fn send_level(self: *Self) !void {
 
 /// Send initial packet spam
 fn send_init(self: *Self) !void {
+    self.x = 128 * 32;
+    self.y = 32 * 32;
+    self.z = 128 * 32;
 
     // Send Server Identification
     var buf = try protocol.create_packet(self.allocator, protocol.Packet.ServerIdentification);
@@ -187,6 +236,12 @@ fn send_init(self: *Self) !void {
     //Spawn Player
     buf = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
     try protocol.make_spawn_player(buf, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
+    try self.send(buf);
+    self.allocator.free(buf);
+
+    //Teleport Player
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);
+    try protocol.make_teleport_player(buf, 255, self.x, self.y, self.z, self.yaw, self.pitch);
     try self.send(buf);
     self.allocator.free(buf);
 

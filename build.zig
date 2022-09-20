@@ -16,6 +16,9 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.addPackage(pkgs.network);
+    exe.addSystemIncludePath("/usr/include");
+    exe.linkSystemLibrary("zlib");
+    exe.linkLibC();
     exe.use_stage1 = true;
     exe.install();
 

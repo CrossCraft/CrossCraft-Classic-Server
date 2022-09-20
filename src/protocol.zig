@@ -105,6 +105,28 @@ pub fn make_spawn_player(buf: []u8, pID: u8, username: []const u8, x: u16, y: u1
     try fbstream.writer().writeIntBig(u8, pitch);
 }
 
+/// Make Teleport Player
+/// buf - Buffer to output
+/// pID - Player ID
+/// username - Username
+/// x - X Position
+/// y - Y Position
+/// z - Z Position
+/// yaw - Angle Yaw
+/// pitch - Angle Pitch
+pub fn make_teleport_player(buf: []u8, pID: u8, x: u16, y: u16, z: u16, yaw: u8, pitch: u8) !void {
+    buf[0] = @enumToInt(Packet.PlayerTeleport);
+    buf[1] = pID;
+
+    var fbstream = std.io.fixedBufferStream(buf[2..]);
+    try fbstream.writer().writeIntBig(u16, x);
+    try fbstream.writer().writeIntBig(u16, y);
+    try fbstream.writer().writeIntBig(u16, z);
+
+    try fbstream.writer().writeIntBig(u8, yaw);
+    try fbstream.writer().writeIntBig(u8, pitch);
+}
+
 /// Make Message
 /// buf - Buffer to output
 /// pID - Player ID
