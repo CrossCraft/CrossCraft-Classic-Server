@@ -108,7 +108,6 @@ pub fn make_spawn_player(buf: []u8, pID: u8, username: []const u8, x: u16, y: u1
 /// Make Teleport Player
 /// buf - Buffer to output
 /// pID - Player ID
-/// username - Username
 /// x - X Position
 /// y - Y Position
 /// z - Z Position

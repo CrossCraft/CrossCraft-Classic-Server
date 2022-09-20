@@ -22,7 +22,6 @@ username: [16]u8,
 
 // TODO: Track IP Data
 
-kick_max: bool,
 is_loaded: bool,
 is_op: u8,
 allocator: *std.mem.Allocator,
@@ -32,6 +31,7 @@ y: u16,
 z: u16,
 yaw: u8,
 pitch: u8,
+send_lock: std.Thread.Mutex = undefined,
 
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
@@ -46,6 +46,9 @@ const PacketType = enum(u8) {
 
 /// Get Packet Size from ID
 fn get_size(packetID: u8) usize {
+    if(packetID > 0xF)
+        return 0;
+    
     return switch (@intToEnum(PacketType, packetID)) {
         PacketType.PlayerIdentification => 131,
         PacketType.SetBlock => 9,
@@ -67,18 +70,28 @@ fn get_name(packetID: u8) []const u8 {
 
 /// Read buffer from socket
 fn readsock(self: *Self, buf: []u8) !void {
+    if(!self.is_connected)
+        return;
+
     const amt = try self.conn.receive(buf);
 
-    if (amt == 0) {
+    if (amt == 0)
         self.is_connected = false;
-    }
 }
 
 /// Receive a packet
 fn receive(self: *Self) !void {
-    try self.readsock(self.packet_buffer[0..1]);
-    var packet_size = get_size(self.packet_buffer[0]);
-    try self.readsock(self.packet_buffer[1..packet_size]);
+    if (self.is_connected){
+        _ = try self.conn.peek(self.packet_buffer[0..1]);
+
+        var packet_size = get_size(self.packet_buffer[0]);
+        if(packet_size == 0){
+            self.is_connected = false;
+            return;
+        }
+
+        try self.readsock(self.packet_buffer[0..packet_size]);
+    }
 }
 
 /// Copy the Username of the Player
@@ -105,8 +118,16 @@ fn copyUsername(self: *Self) void {
 }
 
 /// Send Packet from buffer
-fn send(self: *Self, buf: []u8) !void {
-    try self.conn.writer().writeAll(buf);
+pub fn send(self: *Self, buf: []u8) void {
+    if(!self.is_connected)
+        return;
+    
+    self.send_lock.lock();
+    defer self.send_lock.unlock();
+
+    self.conn.writer().writeAll(buf) catch {
+        self.is_connected = false;
+    };
 }
 
 fn compress_level(compBuf: []u8) !usize {
@@ -162,9 +183,6 @@ fn send_level(self: *Self) !void {
     // Compress and Get Length
     var len = try compress_level(compBuf); 
 
-    std.debug.print("World Size: {}\n", .{world.size});
-    std.debug.print("Compressed Length: {}\n", .{len});
-
     // Send
     var bytes : usize = 0;
     while (bytes < len) {
@@ -197,7 +215,7 @@ fn send_level(self: *Self) !void {
         buf[1027] = @intCast(u8, bytes / len * 100);
 
         //SEND
-        try self.send(buf);
+        self.send(buf);
     }
 }
 
@@ -210,13 +228,13 @@ fn send_init(self: *Self) !void {
     // Send Server Identification
     var buf = try protocol.create_packet(self.allocator, protocol.Packet.ServerIdentification);
     try protocol.make_server_identification(buf, "CrossCraft", "Welcome!", self.is_op);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 
     // Send Level Initialization
     buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelInitialize);
     protocol.make_level_initialize(buf);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 
     try self.send_level();
@@ -224,38 +242,38 @@ fn send_init(self: *Self) !void {
     // Send Level Finalization
     buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelFinalize);
     try protocol.make_level_finalize(buf, 256, 64, 256);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 
     // Send Welcome Message
     buf = try protocol.create_packet(self.allocator, protocol.Packet.Message);
     try protocol.make_message(buf, 0, "&eWelcome to the server!");
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 
     //Spawn Player
     buf = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
     try protocol.make_spawn_player(buf, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 
     //Teleport Player
     buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);
     try protocol.make_teleport_player(buf, 255, self.x, self.y, self.z, self.yaw, self.pitch);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 
     // Send Update User Types
     buf = try protocol.create_packet(self.allocator, protocol.Packet.UpdateUserType);
     protocol.make_user_update(buf, self.is_op);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
 }
 
 fn disconnect(self: *Self, reason: []const u8) !void {
     var buf = try protocol.create_packet(self.allocator, protocol.Packet.Disconnect);
     try protocol.make_diconnect(buf, reason);
-    try self.send(buf);
+    self.send(buf);
     self.allocator.free(buf);
     self.is_connected = false;
 }
@@ -278,12 +296,6 @@ fn process(self: *Self) !void {
             // TODO: Check Ban List
             // TODO: Check IP Ban List
             // TODO: Check Duplicates
-
-            if (self.kick_max) {
-                std.debug.print("Client tried joining when server is full! Terminating Connection.\n", .{});
-                try self.disconnect("Server is full!");
-                return;
-            }
 
             try self.send_init();
         },
@@ -313,9 +325,7 @@ pub fn handle(self: *Self) !void {
 pub fn deinit(self: *Self) void {
     // This is already probably set
     self.is_connected = false;
-
-    //TODO: Make sure all packets in queue get sent
-
+    
     // No more packets will be sent
     self.conn.close();
 }
