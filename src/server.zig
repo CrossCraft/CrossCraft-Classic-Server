@@ -10,6 +10,7 @@ var fba: std.heap.FixedBufferAllocator = undefined;
 
 /// Server Socket
 var socket: network.Socket = undefined;
+var ticks_alive: usize = 0;
 
 /// Initialize Server
 pub fn init() !void {
@@ -43,8 +44,11 @@ pub fn run() !void {
         // Sleep 50ms (20 TPS)
         std.time.sleep(50 * 1000 * 1000);
 
-        // TODO: Update World
-        // TODO: Update All Clients (broadcast packets, etc.)
+        world.update();
+        ticks_alive += 1;
+
+        // TODO: GC dead clients, unbind from array
+        // TODO: Update All Clients Based on World (broadcast packets, etc.)
 
         // Check Client
         var conn = socket.accept() catch |err| switch (err) {
@@ -56,7 +60,7 @@ pub fn run() !void {
 
         // New Client Thread
         // TODO: Assign ID number OR kick for full server
-        // TODO: Add to Client* list
+        // TODO: Add to Client* array
         const client = try allocator.create(Client);
         client.* = Client{
             .conn = conn,
