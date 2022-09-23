@@ -294,6 +294,9 @@ fn send_init(self: *Self) !void {
     };
     try server.request_broadcast(b_info);
 
+    // Spawn all other players
+    try server.new_player_spawn(self);
+
     //Teleport Player
     buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);
     try protocol.make_teleport_player(buf, 255, self.x, self.y, self.z, self.yaw, self.pitch);

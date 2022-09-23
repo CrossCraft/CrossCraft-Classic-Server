@@ -118,6 +118,20 @@ fn ping_all() !void {
     }
 }
 
+pub fn new_player_spawn(client: *Client) !void {
+    var i: usize = 1;
+    while (i < 128) : (i += 1) {
+        if (client_list[i] != null and client_list[i].?.id != client.id ) {
+            var client2 = client_list[i].?;
+
+            var buf = try protocol.create_packet(&allocator, protocol.Packet.SpawnPlayer);
+            try protocol.make_spawn_player(buf, client2.id, client2.username[0..], client2.x, client2.y, client2.z, client2.yaw, client2.pitch);
+            client.send(buf);
+            allocator.free(buf);
+        }
+    }
+}
+
 fn broadcast_client_kill(client: *Client) !void {
     var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
     protocol.make_despawn_player(buf, client.id);
