@@ -309,7 +309,7 @@ fn send_init(self: *Self) !void {
 
 fn disconnect(self: *Self, reason: []const u8) !void {
     var buf = try protocol.create_packet(self.allocator, protocol.Packet.Disconnect);
-    try protocol.make_diconnect(buf, reason);
+    try protocol.make_disconnect(buf, reason);
     self.send(buf);
     self.allocator.free(buf);
     self.is_connected = false;
@@ -347,7 +347,7 @@ fn process(self: *Self) !void {
             var mode: u8 = try reader.readIntBig(u8);
             var btype: u8 = try reader.readIntBig(u8);
 
-            var idx: usize = (y * 256 * 256) + (z * 256) + x;
+            var idx: usize = (@intCast(usize, y) * 256 * 256) + (@intCast(usize, z) * 256) + @intCast(usize, x);
 
             if (mode == 0x00) {
                 //Destroy
@@ -357,8 +357,33 @@ fn process(self: *Self) !void {
                 //Create
                 world.worldData[idx] = btype;
             }
+
+            var buf = try protocol.create_packet(self.allocator, protocol.Packet.SetBlock);
+            try protocol.make_set_block(buf, x, y, z, world.worldData[idx]);
+            var b_info = server.BroadcastInfo {
+                .buf = buf,
+                .exclude_id = 0,
+            };
+            try server.request_broadcast(b_info);
         },
-        PacketType.PositionAndOrientation => {},
+        PacketType.PositionAndOrientation => {
+            var fbstream = std.io.fixedBufferStream(self.packet_buffer[2..]);
+            var reader = fbstream.reader();
+
+            self.x = try reader.readIntBig(u16);
+            self.y = try reader.readIntBig(u16);
+            self.z = try reader.readIntBig(u16);
+            self.yaw = try reader.readIntBig(u8);
+            self.pitch = try reader.readIntBig(u8);
+
+            var buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);
+            try protocol.make_teleport_player(buf, self.id, self.x, self.y, self.z, self.yaw, self.pitch);
+            var b_info = server.BroadcastInfo {
+                .buf = buf,
+                .exclude_id = self.id,
+            };
+            try server.request_broadcast(b_info);
+        },
         PacketType.Message => {
             var fbstream = std.io.fixedBufferStream(self.packet_buffer[2..]);
             var reader = fbstream.reader();

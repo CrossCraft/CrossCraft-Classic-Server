@@ -83,6 +83,15 @@ pub fn make_level_finalize(buf: []u8, x: u16, y: u16, z: u16) !void {
     try fbstream.writer().writeIntBig(u16, z);
 }
 
+pub fn make_set_block(buf: []u8, x: u16, y: u16, z: u16, block: u8) !void {
+    buf[0] = @enumToInt(Packet.SetBlock);
+    var fbstream = std.io.fixedBufferStream(buf[1..]);
+    try fbstream.writer().writeIntBig(u16, x);
+    try fbstream.writer().writeIntBig(u16, y);
+    try fbstream.writer().writeIntBig(u16, z);
+    try fbstream.writer().writeIntBig(u8, block);
+}
+
 /// Make Spawn Player
 /// buf - Buffer to output
 /// pID - Player ID
@@ -144,7 +153,7 @@ pub fn make_message(buf: []u8, pID: i8, message_string: []const u8) !void {
 /// Make Disconnect
 /// buf - Buffer to output
 /// reason - Reason for disconnect
-pub fn make_diconnect(buf: []u8, reason: []const u8) !void {
+pub fn make_disconnect(buf: []u8, reason: []const u8) !void {
     buf[0] = @enumToInt(Packet.Message);
     var fbstream = std.io.fixedBufferStream(buf[1..]);
     if (reason.len < 64) {
