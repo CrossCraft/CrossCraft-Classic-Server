@@ -154,7 +154,6 @@ pub fn make_diconnect(buf: []u8, reason: []const u8) !void {
     }
 }
 
-
 /// Make User Update
 /// buf - Buffer to output
 /// is_op - Is User OP?
