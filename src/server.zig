@@ -118,7 +118,47 @@ fn ping_all() !void {
     }
 }
 
-fn gc_dead_clients() void {
+fn broadcast_client_kill(client: *Client) !void {
+    var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
+    protocol.make_despawn_player(buf, client.id);
+    var b_info = BroadcastInfo {
+        .buf = buf,
+        .exclude_id = client.id,
+    };
+    try request_broadcast(b_info);
+
+    var buf2 = try protocol.create_packet(&allocator, protocol.Packet.Message);
+    var msg: [64]u8 = undefined;
+    for(msg) |*v| {
+        v.* = 0x20;
+    }
+
+    var pos: usize = 2;
+    msg[0] = '&';
+    msg[1] = 'e';
+
+    while((pos-2) < 16 and client.username[pos-2] != 0) : (pos += 1){
+        msg[pos] = client.username[pos-2];
+    }
+
+    var msg2 = " left the game!";
+    var pos_start = pos;
+
+    while(pos < 64 and pos - pos_start < msg2.len): (pos += 1) {
+        msg[pos] = msg2[pos - pos_start];
+    }
+
+    try protocol.make_message(buf2, 0, msg[0..]);
+
+
+    var b_info2 = BroadcastInfo {
+        .buf = buf2,
+        .exclude_id = client.id,
+    };
+    try request_broadcast(b_info2);
+}
+
+fn gc_dead_clients() !void {
     var i: usize = 1;
     var kills: usize = 0;
 
@@ -126,6 +166,8 @@ fn gc_dead_clients() void {
         if (client_list[i] != null) {
             if (!client_list[i].?.is_connected) {
                 var client = client_list[i].?;
+                try broadcast_client_kill(client);
+
                 client.deinit();
                 allocator.destroy(client);
                 client_list[i] = null;
@@ -154,7 +196,7 @@ pub fn run() !void {
             try ping_all();
 
             // Garbage Collect Dead Clients
-            gc_dead_clients();
+            try gc_dead_clients();
         }
 
         // Broadcast all events
