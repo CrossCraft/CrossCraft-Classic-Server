@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 
 const pkgs = struct {
     const network = std.build.Pkg {
@@ -16,8 +17,26 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
     exe.addPackage(pkgs.network);
-    exe.addSystemIncludePath("/usr/include");
-    exe.linkSystemLibrary("zlib");
+    exe.addIncludePath("./zlib/");
+    exe.addCSourceFiles(&[_][]const u8{
+        "zlib/adler32.c",
+        "zlib/crc32.c",
+        "zlib/deflate.c",
+        "zlib/gzclose.c",
+        "zlib/gzlib.c",
+        "zlib/gzread.c",
+        "zlib/gzwrite.c",
+        "zlib/infback.c",
+        "zlib/inffast.c",
+        "zlib/inflate.c",
+        "zlib/inftrees.c",
+        "zlib/trees.c",
+        "zlib/uncompr.c",
+        "zlib/zutil.c",
+    }, &[_][]const u8{
+        "-Wall",
+        "-Werror",
+    });
     exe.linkLibC();
     exe.use_stage1 = true;
     exe.install();
