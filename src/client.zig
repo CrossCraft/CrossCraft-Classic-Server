@@ -218,6 +218,39 @@ fn send_level(self: *Self) !void {
     }
 }
 
+fn join_message(self: *Self) !void {
+    // Broadcast join message
+    var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.Message);
+    var msg: [64]u8 = undefined;
+    for(msg) |*v| {
+        v.* = 0x20;
+    }
+
+    var pos: usize = 2;
+    msg[0] = '&';
+    msg[1] = 'e';
+
+    while((pos-2) < 16 and self.username[pos-2] != 0) : (pos += 1){
+        msg[pos] = self.username[pos-2];
+    }
+
+    var msg2 = " joined the game!";
+    var pos_start = pos;
+
+    while(pos < 64 and pos - pos_start < msg2.len): (pos += 1) {
+        msg[pos] = msg2[pos - pos_start];
+    }
+
+    try protocol.make_message(buf2, 0, msg[0..]);
+
+    var b_info = server.BroadcastInfo {
+        .buf = buf2,
+        .exclude_id = 0,
+    };
+
+    try server.request_broadcast(b_info);
+}
+
 /// Send initial packet spam
 fn send_init(self: *Self) !void {
     self.x = 128 * 32;
@@ -250,11 +283,16 @@ fn send_init(self: *Self) !void {
     self.send(buf);
     self.allocator.free(buf);
 
+    try self.join_message();
+
     //Spawn Player
-    buf = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
-    try protocol.make_spawn_player(buf, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
-    self.send(buf);
-    self.allocator.free(buf);
+    var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
+    try protocol.make_spawn_player(buf2, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
+    var b_info = server.BroadcastInfo {
+        .buf = buf2,
+        .exclude_id = 0,
+    };
+    try server.request_broadcast(b_info);
 
     //Teleport Player
     buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);

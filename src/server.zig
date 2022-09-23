@@ -86,6 +86,7 @@ fn broadcast_all() void {
                 client.send(b_info.buf);
             }
         }
+        allocator.free(b_info.buf);
     }
 
     packet_queue.clearAndFree();
