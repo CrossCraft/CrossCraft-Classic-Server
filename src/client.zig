@@ -3,12 +3,11 @@ const network = @import("network");
 const Self = @This();
 const protocol = @import("protocol.zig");
 const world = @import("world.zig");
+const server = @import("server.zig");
 
-const zlib = @cImport(
-    {
-        @cInclude("zlib.h");
-    }
-);
+const zlib = @cImport({
+    @cInclude("zlib.h");
+});
 
 /// Connection State
 conn: network.Socket,
@@ -46,9 +45,9 @@ const PacketType = enum(u8) {
 
 /// Get Packet Size from ID
 fn get_size(packetID: u8) usize {
-    if(packetID > 0xF)
+    if (packetID > 0xF)
         return 0;
-    
+
     return switch (@intToEnum(PacketType, packetID)) {
         PacketType.PlayerIdentification => 131,
         PacketType.SetBlock => 9,
@@ -70,7 +69,7 @@ fn get_name(packetID: u8) []const u8 {
 
 /// Read buffer from socket
 fn readsock(self: *Self, buf: []u8) !void {
-    if(!self.is_connected)
+    if (!self.is_connected)
         return;
 
     const amt = try self.conn.receive(buf);
@@ -81,11 +80,11 @@ fn readsock(self: *Self, buf: []u8) !void {
 
 /// Receive a packet
 fn receive(self: *Self) !void {
-    if (self.is_connected){
+    if (self.is_connected) {
         _ = try self.conn.peek(self.packet_buffer[0..1]);
 
         var packet_size = get_size(self.packet_buffer[0]);
-        if(packet_size == 0){
+        if (packet_size == 0) {
             self.is_connected = false;
             return;
         }
@@ -119,9 +118,9 @@ fn copyUsername(self: *Self) void {
 
 /// Send Packet from buffer
 pub fn send(self: *Self, buf: []u8) void {
-    if(!self.is_connected)
+    if (!self.is_connected)
         return;
-    
+
     self.send_lock.lock();
     defer self.send_lock.unlock();
 
@@ -131,12 +130,12 @@ pub fn send(self: *Self, buf: []u8) void {
 }
 
 fn compress_level(compBuf: []u8) !usize {
-    var strm : zlib.z_stream = undefined;
+    var strm: zlib.z_stream = undefined;
     strm.zalloc = null;
     strm.zfree = null;
     strm.@"opaque" = null;
 
-    var worldSize : u32 = @byteSwap(@intCast(u32, world.size));
+    var worldSize: u32 = @byteSwap(@intCast(u32, world.size));
     strm.avail_in = 4;
     strm.next_in = @ptrCast([*c]u8, &worldSize);
 
@@ -144,30 +143,30 @@ fn compress_level(compBuf: []u8) !usize {
     strm.next_out = zlib.Z_NULL;
 
     var ret = zlib.deflateInit2(&strm, zlib.Z_BEST_COMPRESSION, zlib.Z_DEFLATED, (zlib.MAX_WBITS + 16), 8, zlib.Z_DEFAULT_STRATEGY);
-    if(ret != zlib.Z_OK)
+    if (ret != zlib.Z_OK)
         return error.ZLIB_INIT_FAIL;
-    
+
     strm.avail_out = @intCast(c_uint, compBuf.len);
     strm.next_out = compBuf.ptr;
 
     ret = zlib.deflate(&strm, zlib.Z_NO_FLUSH);
 
-    switch(ret){
+    switch (ret) {
         zlib.Z_NEED_DICT => return error.ZLIB_NEED_DICT,
         zlib.Z_DATA_ERROR => return error.ZLIB_DATA_ERROR,
         zlib.Z_MEM_ERROR => return error.ZLIB_MEMORY_ERROR,
-        else => {}
+        else => {},
     }
 
     strm.avail_in = world.size;
     strm.next_in = world.worldData.ptr;
     ret = zlib.deflate(&strm, zlib.Z_FINISH);
 
-    switch(ret){
+    switch (ret) {
         zlib.Z_NEED_DICT => return error.ZLIB_NEED_DICT,
         zlib.Z_DATA_ERROR => return error.ZLIB_DATA_ERROR,
         zlib.Z_MEM_ERROR => return error.ZLIB_MEMORY_ERROR,
-        else => {}
+        else => {},
     }
 
     _ = zlib.deflateEnd(&strm);
@@ -176,19 +175,19 @@ fn compress_level(compBuf: []u8) !usize {
 
 fn send_level(self: *Self) !void {
     // Create Compression Buffer
-    var compBuf : []u8 = try self.allocator.alloc(u8, world.size + 4);
+    var compBuf: []u8 = try self.allocator.alloc(u8, world.size + 4);
     // Dealloc at end
     defer self.allocator.free(compBuf);
 
     // Compress and Get Length
-    var len = try compress_level(compBuf); 
+    var len = try compress_level(compBuf);
 
     // Send
-    var bytes : usize = 0;
+    var bytes: usize = 0;
     while (bytes < len) {
         // Calculate remainingBytes and count
         var remainingBytes = len - bytes;
-        var count : usize = if(remainingBytes > 1024) 1024 else remainingBytes;
+        var count: usize = if (remainingBytes > 1024) 1024 else remainingBytes;
 
         // Create Packet
         var buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelDataChunk);
@@ -205,8 +204,8 @@ fn send_level(self: *Self) !void {
         //LENGTH (0-1024)
         try bstream.writer().writeIntBig(u16, @intCast(u16, count));
         //BUFFER COPY
-        var startPos : usize = bytes;
-        var endPos : usize = bytes + count;
+        var startPos: usize = bytes;
+        var endPos: usize = bytes + count;
         try bstream.writer().writeAll(compBuf[startPos..endPos]);
 
         bytes += count;
@@ -310,9 +309,9 @@ fn process(self: *Self) !void {
             var mode: u8 = try reader.readIntBig(u8);
             var btype: u8 = try reader.readIntBig(u8);
 
-            var idx : usize = (y * 256 * 256) + (z * 256) + x;
+            var idx: usize = (y * 256 * 256) + (z * 256) + x;
 
-            if(mode == 0x00){
+            if (mode == 0x00) {
                 //Destroy
                 world.worldData[idx] = 0;
                 _ = btype;
@@ -322,7 +321,40 @@ fn process(self: *Self) !void {
             }
         },
         PacketType.PositionAndOrientation => {},
-        PacketType.Message => {},
+        PacketType.Message => {
+            var fbstream = std.io.fixedBufferStream(self.packet_buffer[2..]);
+            var reader = fbstream.reader();
+
+            var msg: [64]u8 = undefined;
+            _ = try reader.readAll(msg[0..]);
+
+            var msg2: [64]u8 = undefined;
+            
+            //Copy username 
+            var pos : usize = 0;
+            while(pos < 16 and self.username[pos] != 0): (pos += 1) {
+                msg2[pos] = self.username[pos];
+            }
+            msg2[pos] = ':';
+            pos += 1;
+
+            msg2[pos] = ' ';
+            pos += 1;
+
+            var init_pos = pos;
+            while(pos < 64) : (pos += 1){
+                msg2[pos] = msg[pos - init_pos];
+            }
+
+            var buf = try protocol.create_packet(self.allocator, protocol.Packet.Message);
+            try protocol.make_message(buf, @bitCast(i8, self.id), msg2[0..]);
+
+            var b_info = server.BroadcastInfo {
+                .buf = buf,
+                .exclude_id = 0,
+            };
+            try server.request_broadcast(b_info);
+        },
     }
 }
 
@@ -347,7 +379,7 @@ pub fn handle(self: *Self) !void {
 pub fn deinit(self: *Self) void {
     // This is already probably set
     self.is_connected = false;
-    
+
     // No more packets will be sent
     self.conn.close();
 }

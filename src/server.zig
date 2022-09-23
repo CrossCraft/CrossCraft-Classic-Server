@@ -9,6 +9,10 @@ var ram_buffer: [16 * 1000 * 1000]u8 = undefined;
 var allocator: std.mem.Allocator = undefined;
 var fba: std.heap.FixedBufferAllocator = undefined;
 
+/// Packet Queue
+var packet_queue : std.ArrayList(BroadcastInfo) = undefined;
+var packet_queue_lock : std.Thread.Mutex = undefined;
+
 /// Server Socket
 var socket: network.Socket = undefined;
 var ticks_alive: usize = 0;
@@ -30,10 +34,13 @@ pub fn init() !void {
     try world.init(&allocator);
 
     // Init client list
-    var i : usize = 0;
-    while(i < 128) : (i += 1) {
+    var i: usize = 0;
+    while (i < 128) : (i += 1) {
         client_list[i] = null;
     }
+
+    // Init packet list
+    packet_queue = std.ArrayList(BroadcastInfo).init(allocator);
 
     // Create brand new socket handle
     socket = try network.Socket.create(.ipv4, .tcp);
@@ -50,12 +57,46 @@ pub fn init() !void {
     std.debug.print("Listening for connections...\n", .{});
 }
 
+/// Broadcast information
+/// buf - The packet buffer to send
+/// exclude_id - Excludes client with ID -- 0 otherwise
+pub const BroadcastInfo = struct {
+    buf: []u8,
+    exclude_id: u8
+};
+
+/// Request Broadcast
+/// Adds packet to the queue to broadcast to
+pub fn request_broadcast(info: BroadcastInfo) !void {
+    packet_queue_lock.lock();
+    defer packet_queue_lock.unlock();
+    try packet_queue.append(info);
+}
+
+/// Broadcasts all packets
+fn broadcast_all() void {
+    packet_queue_lock.lock();
+    defer packet_queue_lock.unlock();
+    
+    for (packet_queue.items) |b_info| {
+        var i: usize = 1;
+        while (i < 128) : (i += 1) {
+            if (client_list[i] != null and i != b_info.exclude_id) {
+                var client = client_list[i].?;
+                client.send(b_info.buf);
+            }
+        }
+    }
+
+    packet_queue.clearAndFree();
+}
+
 /// Gets an ID if available -- returns -1 otherwise
 fn get_available_ID() i8 {
-    var i : usize = 1;
+    var i: usize = 1;
 
-    while(i < 128) : (i += 1){
-        if(client_list[i] == null)
+    while (i < 128) : (i += 1) {
+        if (client_list[i] == null)
             return @intCast(i8, i);
     }
 
@@ -66,23 +107,23 @@ fn ping_all() !void {
     var buf = try protocol.create_packet(&allocator, protocol.Packet.Ping);
     protocol.make_ping(buf);
     defer allocator.free(buf);
-    
-    var i : usize = 1;
-    while(i < 128) : (i += 1){
-        if(client_list[i] != null){
+
+    var i: usize = 1;
+    while (i < 128) : (i += 1) {
+        if (client_list[i] != null) {
             var client = client_list[i].?;
-            client.send(buf);        
+            client.send(buf);
         }
     }
 }
 
 fn gc_dead_clients() void {
-    var i : usize = 1;
-    var kills : usize = 0;
+    var i: usize = 1;
+    var kills: usize = 0;
 
-    while(i < 128) : (i += 1){
-        if(client_list[i] != null) {
-            if(!client_list[i].?.is_connected){
+    while (i < 128) : (i += 1) {
+        if (client_list[i] != null) {
+            if (!client_list[i].?.is_connected) {
                 var client = client_list[i].?;
                 client.deinit();
                 allocator.destroy(client);
@@ -93,7 +134,7 @@ fn gc_dead_clients() void {
         }
     }
 
-    if(kills > 0){
+    if (kills > 0) {
         std.debug.print("Killed {} dead connections.\n", .{kills});
     }
 }
@@ -108,14 +149,15 @@ pub fn run() !void {
         ticks_alive += 1;
 
         // PING ALL CLIENTS
-        if(ticks_alive % 200 == 0) {
+        if (ticks_alive % 200 == 0) {
             try ping_all();
 
             // Garbage Collect Dead Clients
             gc_dead_clients();
         }
 
-        // TODO: Update All Clients Based on World Events (broadcast packets, etc.)
+        // Broadcast all events
+        broadcast_all();
 
         // Check Client
         var conn = socket.accept() catch |err| switch (err) {
@@ -126,9 +168,9 @@ pub fn run() !void {
         std.debug.print("New Client @ {}\n", .{try conn.getRemoteEndPoint()});
 
         // New Client Thread
-        var id : i8 = get_available_ID();
+        var id: i8 = get_available_ID();
 
-        if(id < 0){
+        if (id < 0) {
             conn.close();
             continue;
         }
@@ -156,9 +198,9 @@ pub fn run() !void {
 
 /// Cleanup Server
 pub fn deinit() void {
-    var i : usize = 1;
-    while(i < 128) : (i += 1){
-        if(client_list[i] != null) {
+    var i: usize = 1;
+    while (i < 128) : (i += 1) {
+        if (client_list[i] != null) {
             var client = client_list[i].?;
             client.deinit();
             allocator.destroy(client);

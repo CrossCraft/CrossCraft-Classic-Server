@@ -9,7 +9,7 @@ pub fn init(allocator: *std.mem.Allocator) !void {
     alloc = allocator;
     worldData = try allocator.alloc(u8, 256 * 64 * 256);
     @memset(worldData.ptr, 0, worldData.len);
-    
+
     //TODO: Generate World OR Load From Save
 }
 
@@ -19,8 +19,8 @@ pub fn update() void {
     tick_count += 1;
 
     // Autosave
-    if(tick_count % 1200 == 0){
-        save();        
+    if (tick_count % 1200 == 0) {
+        save();
     }
 }
 
