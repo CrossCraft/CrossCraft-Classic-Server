@@ -83,6 +83,12 @@ pub fn make_level_finalize(buf: []u8, x: u16, y: u16, z: u16) !void {
     try fbstream.writer().writeIntBig(u16, z);
 }
 
+/// Make Set Block
+/// buf - Buffer to output
+/// x - X pos
+/// y - Y pos
+/// z - Z pos
+/// block - Block Type
 pub fn make_set_block(buf: []u8, x: u16, y: u16, z: u16, block: u8) !void {
     buf[0] = @enumToInt(Packet.SetBlock);
     var fbstream = std.io.fixedBufferStream(buf[1..]);
@@ -133,6 +139,14 @@ pub fn make_teleport_player(buf: []u8, pID: u8, x: u16, y: u16, z: u16, yaw: u8,
 
     try fbstream.writer().writeIntBig(u8, yaw);
     try fbstream.writer().writeIntBig(u8, pitch);
+}
+
+/// Make Despawn Player
+/// buf - Buffer to output
+/// pID - Player ID
+pub fn make_despawn_player(buf: []u8, pID: u8) void {
+    buf[0] = @enumToInt(Packet.DespawnPlayer);
+    buf[1] = pID;
 }
 
 /// Make Message
