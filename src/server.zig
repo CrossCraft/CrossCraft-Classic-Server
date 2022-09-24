@@ -3,6 +3,7 @@ const network = @import("network");
 const Client = @import("client.zig");
 const world = @import("world.zig");
 const protocol = @import("protocol.zig");
+const users = @import("users.zig");
 
 /// Fixed Buffer Allocation
 var ram_buffer: [16 * 1000 * 1000]u8 = undefined;
@@ -10,8 +11,8 @@ var allocator: std.mem.Allocator = undefined;
 var fba: std.heap.FixedBufferAllocator = undefined;
 
 /// Packet Queue
-var packet_queue : std.ArrayList(BroadcastInfo) = undefined;
-var packet_queue_lock : std.Thread.Mutex = undefined;
+var packet_queue: std.ArrayList(BroadcastInfo) = undefined;
+var packet_queue_lock: std.Thread.Mutex = undefined;
 
 /// Server Socket
 var socket: network.Socket = undefined;
@@ -39,6 +40,9 @@ pub fn init() !void {
         client_list[i] = null;
     }
 
+    // Init users list
+    try users.init(allocator);
+
     // Init packet list
     packet_queue = std.ArrayList(BroadcastInfo).init(allocator);
 
@@ -60,10 +64,7 @@ pub fn init() !void {
 /// Broadcast information
 /// buf - The packet buffer to send
 /// exclude_id - Excludes client with ID -- 0 otherwise
-pub const BroadcastInfo = struct {
-    buf: []u8,
-    exclude_id: u8
-};
+pub const BroadcastInfo = struct { buf: []u8, exclude_id: u8 };
 
 /// Request Broadcast
 /// Adds packet to the queue to broadcast to
@@ -77,7 +78,7 @@ pub fn request_broadcast(info: BroadcastInfo) !void {
 fn broadcast_all() void {
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
-    
+
     for (packet_queue.items) |b_info| {
         var i: usize = 1;
         while (i < 128) : (i += 1) {
@@ -121,7 +122,7 @@ fn ping_all() !void {
 pub fn new_player_spawn(client: *Client) !void {
     var i: usize = 1;
     while (i < 128) : (i += 1) {
-        if (client_list[i] != null and client_list[i].?.id != client.id ) {
+        if (client_list[i] != null and client_list[i].?.id != client.id) {
             var client2 = client_list[i].?;
 
             var buf = try protocol.create_packet(&allocator, protocol.Packet.SpawnPlayer);
@@ -135,7 +136,7 @@ pub fn new_player_spawn(client: *Client) !void {
 fn broadcast_client_kill(client: *Client) !void {
     var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
     protocol.make_despawn_player(buf, client.id);
-    var b_info = BroadcastInfo {
+    var b_info = BroadcastInfo{
         .buf = buf,
         .exclude_id = client.id,
     };
@@ -143,7 +144,7 @@ fn broadcast_client_kill(client: *Client) !void {
 
     var buf2 = try protocol.create_packet(&allocator, protocol.Packet.Message);
     var msg: [64]u8 = undefined;
-    for(msg) |*v| {
+    for (msg) |*v| {
         v.* = 0x20;
     }
 
@@ -151,21 +152,20 @@ fn broadcast_client_kill(client: *Client) !void {
     msg[0] = '&';
     msg[1] = 'e';
 
-    while((pos-2) < 16 and client.username[pos-2] != 0) : (pos += 1){
-        msg[pos] = client.username[pos-2];
+    while ((pos - 2) < 16 and client.username[pos - 2] != 0) : (pos += 1) {
+        msg[pos] = client.username[pos - 2];
     }
 
     var msg2 = " left the game!";
     var pos_start = pos;
 
-    while(pos < 64 and pos - pos_start < msg2.len): (pos += 1) {
+    while (pos < 64 and pos - pos_start < msg2.len) : (pos += 1) {
         msg[pos] = msg2[pos - pos_start];
     }
 
     try protocol.make_message(buf2, 0, msg[0..]);
 
-
-    var b_info2 = BroadcastInfo {
+    var b_info2 = BroadcastInfo{
         .buf = buf2,
         .exclude_id = client.id,
     };
@@ -265,6 +265,7 @@ pub fn deinit() void {
         }
     }
 
+    users.deinit();
     socket.close();
     network.deinit();
     world.deinit();

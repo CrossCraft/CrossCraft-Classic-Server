@@ -124,9 +124,11 @@ pub fn send(self: *Self, buf: []u8) void {
     self.send_lock.lock();
     defer self.send_lock.unlock();
 
-    self.conn.writer().writeAll(buf) catch |err| switch (err){
+    self.conn.writer().writeAll(buf) catch |err| switch (err) {
         error.WouldBlock => send(self, buf),
-        else => {self.is_connected = false;}
+        else => {
+            self.is_connected = false;
+        },
     };
 }
 
@@ -226,7 +228,7 @@ fn join_message(self: *Self) !void {
     // Broadcast join message
     var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.Message);
     var msg: [64]u8 = undefined;
-    for(msg) |*v| {
+    for (msg) |*v| {
         v.* = 0x20;
     }
 
@@ -234,20 +236,20 @@ fn join_message(self: *Self) !void {
     msg[0] = '&';
     msg[1] = 'e';
 
-    while((pos-2) < 16 and self.username[pos-2] != 0) : (pos += 1){
-        msg[pos] = self.username[pos-2];
+    while ((pos - 2) < 16 and self.username[pos - 2] != 0) : (pos += 1) {
+        msg[pos] = self.username[pos - 2];
     }
 
     var msg2 = " joined the game!";
     var pos_start = pos;
 
-    while(pos < 64 and pos - pos_start < msg2.len): (pos += 1) {
+    while (pos < 64 and pos - pos_start < msg2.len) : (pos += 1) {
         msg[pos] = msg2[pos - pos_start];
     }
 
     try protocol.make_message(buf2, 0, msg[0..]);
 
-    var b_info = server.BroadcastInfo {
+    var b_info = server.BroadcastInfo{
         .buf = buf2,
         .exclude_id = 0,
     };
@@ -294,7 +296,7 @@ fn send_init(self: *Self) !void {
     //Spawn Player
     var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
     try protocol.make_spawn_player(buf2, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
-    var b_info = server.BroadcastInfo {
+    var b_info = server.BroadcastInfo{
         .buf = buf2,
         .exclude_id = 0,
     };
@@ -369,7 +371,7 @@ fn process(self: *Self) !void {
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.SetBlock);
             try protocol.make_set_block(buf, x, y, z, world.worldData[idx]);
-            var b_info = server.BroadcastInfo {
+            var b_info = server.BroadcastInfo{
                 .buf = buf,
                 .exclude_id = 0,
             };
@@ -387,7 +389,7 @@ fn process(self: *Self) !void {
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);
             try protocol.make_teleport_player(buf, self.id, self.x, self.y, self.z, self.yaw, self.pitch);
-            var b_info = server.BroadcastInfo {
+            var b_info = server.BroadcastInfo{
                 .buf = buf,
                 .exclude_id = self.id,
             };
@@ -401,10 +403,10 @@ fn process(self: *Self) !void {
             _ = try reader.readAll(msg[0..]);
 
             var msg2: [64]u8 = undefined;
-            
-            //Copy username 
-            var pos : usize = 0;
-            while(pos < 16 and self.username[pos] != 0): (pos += 1) {
+
+            //Copy username
+            var pos: usize = 0;
+            while (pos < 16 and self.username[pos] != 0) : (pos += 1) {
                 msg2[pos] = self.username[pos];
             }
             msg2[pos] = ':';
@@ -414,14 +416,14 @@ fn process(self: *Self) !void {
             pos += 1;
 
             var init_pos = pos;
-            while(pos < 64) : (pos += 1){
+            while (pos < 64) : (pos += 1) {
                 msg2[pos] = msg[pos - init_pos];
             }
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.Message);
             try protocol.make_message(buf, @bitCast(i8, self.id), msg2[0..]);
 
-            var b_info = server.BroadcastInfo {
+            var b_info = server.BroadcastInfo{
                 .buf = buf,
                 .exclude_id = 0,
             };
