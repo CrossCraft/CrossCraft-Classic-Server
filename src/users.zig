@@ -11,13 +11,13 @@ pub fn init(alloc: std.mem.Allocator) !void {
 }
 
 pub fn add_user(user: User) !void {
-    array.append(user);
+    try array.append(user);
     try save_users();
 }
 
 pub fn get_user_name(name: []const u8) ?*User {
     for (array.items) |*item| {
-        if (std.mem.eql(u8, item.name, name)) {
+        if (std.mem.eql(u8, item.name[0..], name)) {
             return item;
         }
     }
@@ -27,7 +27,7 @@ pub fn get_user_name(name: []const u8) ?*User {
 
 pub fn get_user_ip(ip: []const u8) ?*User {
     for (array.items) |*item| {
-        if (std.mem.eql(u8, item.ip, ip)) {
+        if (std.mem.eql(u8, item.ip[0..], ip)) {
             return item;
         }
     }
@@ -130,7 +130,12 @@ pub fn load_users() !void {
             var size = reader.read(std.mem.asBytes(&user));
 
             if (size) {
-                try array.append(user);
+                var asize = size catch unreachable;
+                if(asize > 0){
+                    try array.append(user);
+                } else {
+                    break;
+                }
             } else |err| {
                 std.debug.print("Error: {s}\n", .{@errorName(err)});
                 break;

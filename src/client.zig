@@ -4,6 +4,7 @@ const Self = @This();
 const protocol = @import("protocol.zig");
 const world = @import("world.zig");
 const server = @import("server.zig");
+const users = @import("users.zig");
 
 const zlib = @cImport({
     @cInclude("zlib.h");
@@ -18,8 +19,7 @@ packet_buffer: [131]u8,
 
 /// Username of client
 username: [16]u8,
-
-// TODO: Track IP Data
+ip: [15]u8,
 
 is_loaded: bool,
 is_op: u8,
@@ -341,9 +341,51 @@ fn process(self: *Self) !void {
 
             self.copyUsername();
 
-            // TODO: Check Ban List
-            // TODO: Check IP Ban List
-            // TODO: Check Duplicates
+            // Get user by name
+            var user = users.get_user_name(self.username[0..]);
+            if(user == null){
+                var user2 = users.User{
+                    .name = self.username,
+                    .ip = self.ip,
+                    .banned = false,
+                    .ip_banned = false,
+                    .op = false
+                };
+
+                try users.add_user(user2);
+            } else {
+                // Check banned
+                if(user.?.banned){
+                    try self.disconnect("&7Banned.");
+                }
+            }
+
+            user = users.get_user_ip(self.ip[0..]);
+            if(user == null) {
+                var user2 = users.User{
+                    .name = self.username,
+                    .ip = self.ip,
+                    .banned = false,
+                    .ip_banned = false,
+                    .op = false
+                };
+
+                try users.add_user(user2);
+            } else {
+                // Check IP banned
+                if(user.?.ip_banned) {
+                    try self.disconnect("&7Banned.");
+                }
+
+                // Check OPed
+                if(user.?.op) {
+                    self.is_op = 0x64;
+                }
+            }
+            
+            if(server.get_user_count(self.username[0..]) != 1){
+                try self.disconnect("&7Already Connected.");
+            }
 
             try self.send_init();
         },

@@ -221,9 +221,6 @@ pub fn run() !void {
             error.WouldBlock => continue,
             else => return err,
         };
-
-        std.debug.print("New Client @ {}\n", .{try conn.getRemoteEndPoint()});
-
         // New Client Thread
         var id: i8 = get_available_ID();
 
@@ -231,6 +228,12 @@ pub fn run() !void {
             conn.close();
             continue;
         }
+
+        var endpoint = try conn.getRemoteEndPoint();
+        var ip: [15]u8 = [_]u8{0} ** 15;
+        _ = try std.fmt.bufPrint(ip[0..], "{s}", .{endpoint.address});
+
+        std.debug.print("New Client @ {s}\n", .{ip});
 
         const client = try allocator.create(Client);
         client.* = Client{
@@ -248,9 +251,25 @@ pub fn run() !void {
             .y = 0,
             .z = 0,
             .id = @bitCast(u8, id),
+            .ip = ip
         };
         client_list[@intCast(usize, @bitCast(u8, id))] = client;
     }
+}
+
+pub fn get_user_count(name: []const u8) usize {
+    var count : usize = 0;
+
+    var i : usize = 1;
+    while (i < 128) : (i += 1) {
+        if (client_list[i] != null) {
+            if(std.mem.eql(u8, client_list[i].?.username[0..], name)){
+                count += 1;
+            }
+        }
+    }
+
+    return count;
 }
 
 /// Cleanup Server
