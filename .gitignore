@@ -2,3 +2,4 @@ zig-cache
 zig-out
 *.ccc
 *.dat
+users.dat

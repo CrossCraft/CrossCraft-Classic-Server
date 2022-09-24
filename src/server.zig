@@ -196,8 +196,24 @@ fn gc_dead_clients() !void {
     }
 }
 
+fn command_loop() !void {
+    var console_in = std.io.getStdIn();
+    var console_reader = console_in.reader();
+
+    while(true) {
+        std.time.sleep(50 * 1000 * 1000);
+        var console_input : [256]u8 = [_]u8{0} ** 256;
+        var cmd = try console_reader.read(console_input[0..]);
+
+        if(cmd > 0)
+            std.debug.print("Command: {s}\n", .{console_input[0..cmd]});
+    }
+}
+
 /// Run Server
 pub fn run() !void {
+    var frame = async command_loop();
+
     while (true) {
         // Sleep 50ms (20 TPS)
         std.time.sleep(50 * 1000 * 1000);
@@ -255,6 +271,7 @@ pub fn run() !void {
         };
         client_list[@intCast(usize, @bitCast(u8, id))] = client;
     }
+    _ = frame;
 }
 
 pub fn get_user_count(name: []const u8) usize {
