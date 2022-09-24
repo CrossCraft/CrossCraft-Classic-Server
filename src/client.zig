@@ -124,8 +124,9 @@ pub fn send(self: *Self, buf: []u8) void {
     self.send_lock.lock();
     defer self.send_lock.unlock();
 
-    self.conn.writer().writeAll(buf) catch {
-        self.is_connected = false;
+    self.conn.writer().writeAll(buf) catch |err| switch (err){
+        error.WouldBlock => send(self, buf),
+        else => {self.is_connected = false;}
     };
 }
 
@@ -211,10 +212,13 @@ fn send_level(self: *Self) !void {
         bytes += count;
 
         //PERCENT
-        buf[1027] = @intCast(u8, bytes / len * 100);
+        buf[1027] = @intCast(u8, (bytes * 100) / len);
 
         //SEND
         self.send(buf);
+
+        //Delay Send
+        std.time.sleep(1000 * 1000);
     }
 }
 
@@ -269,6 +273,7 @@ fn send_init(self: *Self) !void {
     self.send(buf);
     self.allocator.free(buf);
 
+    // Send Level Itself
     try self.send_level();
 
     // Send Level Finalization
@@ -283,6 +288,7 @@ fn send_init(self: *Self) !void {
     self.send(buf);
     self.allocator.free(buf);
 
+    // Send Join Message
     try self.join_message();
 
     //Spawn Player
