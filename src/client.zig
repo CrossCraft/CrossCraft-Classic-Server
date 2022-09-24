@@ -263,14 +263,8 @@ fn send_init(self: *Self) !void {
     self.y = 32 * 32;
     self.z = 128 * 32;
 
-    // Send Server Identification
-    var buf = try protocol.create_packet(self.allocator, protocol.Packet.ServerIdentification);
-    try protocol.make_server_identification(buf, "CrossCraft", "Welcome!", self.is_op);
-    self.send(buf);
-    self.allocator.free(buf);
-
     // Send Level Initialization
-    buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelInitialize);
+    var buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelInitialize);
     protocol.make_level_initialize(buf);
     self.send(buf);
     self.allocator.free(buf);
@@ -341,6 +335,18 @@ fn process(self: *Self) !void {
 
             self.copyUsername();
 
+            // Send Server Identification
+            var buf = try protocol.create_packet(self.allocator, protocol.Packet.ServerIdentification);
+            try protocol.make_server_identification(buf, "CrossCraft", "Welcome!", self.is_op);
+            self.send(buf);
+            self.allocator.free(buf);
+
+            if(server.get_user_count(self.username[0..]) != 1){
+                std.debug.print("Error: Duplicate client connection!\n", .{});
+                try self.disconnect("&7Already Connected.");
+                return;
+            }
+
             // Get user by name
             var user = users.get_user_name(self.username[0..]);
             if(user == null){
@@ -357,6 +363,7 @@ fn process(self: *Self) !void {
                 // Check banned
                 if(user.?.banned){
                     try self.disconnect("&7Banned.");
+                    return;
                 }
             }
 
@@ -375,6 +382,7 @@ fn process(self: *Self) !void {
                 // Check IP banned
                 if(user.?.ip_banned) {
                     try self.disconnect("&7Banned.");
+                    return;
                 }
 
                 // Check OPed
@@ -383,9 +391,6 @@ fn process(self: *Self) !void {
                 }
             }
             
-            if(server.get_user_count(self.username[0..]) != 1){
-                try self.disconnect("&7Already Connected.");
-            }
 
             try self.send_init();
         },

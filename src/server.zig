@@ -119,6 +119,8 @@ fn ping_all() !void {
     }
 }
 
+/// Spawns all players previously connected for a new client
+/// client - Client to send the spawn packets to
 pub fn new_player_spawn(client: *Client) !void {
     var i: usize = 1;
     while (i < 128) : (i += 1) {
@@ -133,6 +135,9 @@ pub fn new_player_spawn(client: *Client) !void {
     }
 }
 
+/// Sends a despawn & message to all clients
+/// Triggered by gc_dead_clients()
+/// client - Client that is being killed
 fn broadcast_client_kill(client: *Client) !void {
     var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
     protocol.make_despawn_player(buf, client.id);
@@ -172,6 +177,7 @@ fn broadcast_client_kill(client: *Client) !void {
     try request_broadcast(b_info2);
 }
 
+/// Garbage Collect Dead Clients
 fn gc_dead_clients() !void {
     var i: usize = 1;
     var kills: usize = 0;
@@ -196,6 +202,7 @@ fn gc_dead_clients() !void {
     }
 }
 
+/// Command parser loop REPL
 fn command_loop() !void {
     var console_in = std.io.getStdIn();
     var console_reader = console_in.reader();
@@ -274,6 +281,9 @@ pub fn run() !void {
     _ = frame;
 }
 
+/// Gets number of users with a given name
+/// Used for checking for duplicates
+/// name - Name to search for
 pub fn get_user_count(name: []const u8) usize {
     var count : usize = 0;
 
