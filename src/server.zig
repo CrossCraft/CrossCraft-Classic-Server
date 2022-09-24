@@ -206,7 +206,7 @@ pub fn run() !void {
         ticks_alive += 1;
 
         // PING ALL CLIENTS
-        if (ticks_alive % 200 == 0) {
+        if (ticks_alive % 600 == 0) {
             try ping_all();
 
             // Garbage Collect Dead Clients
