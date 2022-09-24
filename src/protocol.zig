@@ -168,7 +168,7 @@ pub fn make_message(buf: []u8, pID: i8, message_string: []const u8) !void {
 /// buf - Buffer to output
 /// reason - Reason for disconnect
 pub fn make_disconnect(buf: []u8, reason: []const u8) !void {
-    buf[0] = @enumToInt(Packet.Message);
+    buf[0] = @enumToInt(Packet.Disconnect);
     var fbstream = std.io.fixedBufferStream(buf[1..]);
     if (reason.len < 64) {
         try fbstream.writer().writeAll(reason);
