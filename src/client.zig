@@ -4,6 +4,7 @@ const Self = @This();
 const protocol = @import("protocol.zig");
 const world = @import("world.zig");
 const server = @import("server.zig");
+const broadcaster = @import("broadcaster.zig");
 const users = @import("users.zig");
 
 const zlib = @cImport({
@@ -239,7 +240,6 @@ fn send_level(self: *Self) !void {
 
 fn join_message(self: *Self) !void {
     // Broadcast join message
-    var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.Message);
     var msg: [64]u8 = undefined;
     for (msg) |*v| {
         v.* = 0x20;
@@ -260,13 +260,9 @@ fn join_message(self: *Self) !void {
         msg[pos] = msg2[pos - pos_start];
     }
 
+    var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.Message);
     try protocol.make_message(buf2, 0, msg[0..]);
-
-    var b_info = try self.allocator.create(server.BroadcastInfo); 
-    b_info.buf = buf2;
-    b_info.exclude_id = 0;
-    
-    try server.request_broadcast(b_info);
+    broadcaster.request_broadcast(buf2, 0);
 }
 
 /// Send initial packet spam
@@ -302,10 +298,7 @@ fn send_init(self: *Self) !void {
     //Spawn Player Broadcast
     var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
     try protocol.make_spawn_player(buf2, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
-    var b_info = try self.allocator.create(server.BroadcastInfo); 
-    b_info.buf = buf2;
-    b_info.exclude_id = self.id;
-    try server.request_broadcast(b_info);
+    broadcaster.request_broadcast(buf2, self.id);
 
     //Spawn Player
     buf = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
@@ -435,10 +428,7 @@ fn process(self: *Self) !void {
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.SetBlock);
             try protocol.make_set_block(buf, x, y, z, world.worldData[idx]);
-            var b_info = try self.allocator.create(server.BroadcastInfo); 
-            b_info.buf = buf;
-            b_info.exclude_id = self.id;
-            try server.request_broadcast(b_info);
+            broadcaster.request_broadcast(buf, self.id);
         },
         PacketType.PositionAndOrientation => {
             var fbstream = std.io.fixedBufferStream(self.packet_buffer[2..]);
@@ -452,11 +442,7 @@ fn process(self: *Self) !void {
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.PlayerTeleport);
             try protocol.make_teleport_player(buf, self.id, self.x, self.y, self.z, self.yaw, self.pitch);
-            
-            var b_info = try self.allocator.create(server.BroadcastInfo); 
-            b_info.buf = buf;
-            b_info.exclude_id = self.id;
-            try server.request_broadcast(b_info);
+            broadcaster.request_broadcast(buf, self.id);
         },
         PacketType.Message => {
             var fbstream = std.io.fixedBufferStream(self.packet_buffer[2..]);
@@ -492,11 +478,7 @@ fn process(self: *Self) !void {
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.Message);
             try protocol.make_message(buf, @bitCast(i8, self.id), msg2[0..]);
-        
-            var b_info = try self.allocator.create(server.BroadcastInfo); 
-            b_info.buf = buf;
-            b_info.exclude_id = 0;
-            try server.request_broadcast(b_info);
+            broadcaster.request_broadcast(buf, 0);
         },
     }
 

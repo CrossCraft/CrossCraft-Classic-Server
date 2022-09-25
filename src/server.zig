@@ -4,15 +4,12 @@ const Client = @import("client.zig");
 const world = @import("world.zig");
 const protocol = @import("protocol.zig");
 const users = @import("users.zig");
+const broadcaster = @import("broadcaster.zig");
 
 /// Fixed Buffer Allocation
 var ram_buffer: [16 * 1000 * 1000]u8 = undefined;
 var allocator: std.mem.Allocator = undefined;
 var fba: std.heap.FixedBufferAllocator = undefined;
-
-/// Packet Queue
-var packet_queue: std.ArrayList(*BroadcastInfo) = undefined;
-var packet_queue_lock: std.Thread.Mutex = undefined;
 
 /// Server Socket
 var socket: network.Socket = undefined;
@@ -43,9 +40,6 @@ pub fn init() !void {
     // Init users list
     try users.init(allocator);
 
-    // Init packet list
-    packet_queue = std.ArrayList(*BroadcastInfo).init(allocator);
-
     // Create brand new socket handle
     socket = try network.Socket.create(.ipv4, .tcp);
     try socket.enablePortReuse(true);
@@ -59,38 +53,6 @@ pub fn init() !void {
     // Listen for connections
     try socket.listen();
     std.debug.print("Listening for connections...\n", .{});
-}
-
-/// Broadcast information
-/// buf - The packet buffer to send
-/// exclude_id - Excludes client with ID -- 0 otherwise
-pub const BroadcastInfo = struct { buf: []u8, exclude_id: u8 };
-
-/// Request Broadcast
-/// Adds packet to the queue to broadcast to
-pub fn request_broadcast(info: *BroadcastInfo) !void {
-    packet_queue_lock.lock();
-    defer packet_queue_lock.unlock();
-    try packet_queue.append(info);
-}
-
-/// Broadcasts all packets
-fn broadcast_all() void {
-    packet_queue_lock.lock();
-    defer packet_queue_lock.unlock();
-
-    for (packet_queue.items) |b_info| {
-        var i: usize = 1;
-        while (i < 128) : (i += 1) {
-            if (client_list[i] != null and i != b_info.exclude_id) {
-                var client = client_list[i].?;
-                client.send(b_info.buf);
-                std.time.sleep(1000 * 1000);
-            }
-        }
-    }
-
-    packet_queue.clearAndFree();
 }
 
 /// Gets an ID if available -- returns -1 otherwise
@@ -141,12 +103,8 @@ pub fn new_player_spawn(client: *Client) !void {
 fn broadcast_client_kill(client: *Client) !void {
     var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
     protocol.make_despawn_player(buf, client.id);
-    var b_info = try allocator.create(BroadcastInfo); 
-    b_info.buf = buf;
-    b_info.exclude_id = client.id;
-    try request_broadcast(b_info);
+    broadcaster.request_broadcast(buf, client.id);
 
-    var buf2 = try protocol.create_packet(&allocator, protocol.Packet.Message);
     var msg: [64]u8 = undefined;
     for (msg) |*v| {
         v.* = 0x20;
@@ -167,12 +125,9 @@ fn broadcast_client_kill(client: *Client) !void {
         msg[pos] = msg2[pos - pos_start];
     }
 
+    var buf2 = try protocol.create_packet(&allocator, protocol.Packet.Message);
     try protocol.make_message(buf2, 0, msg[0..]);
-
-    var b_info2 = try allocator.create(BroadcastInfo); 
-    b_info2.buf = buf2;
-    b_info2.exclude_id = client.id;
-    try request_broadcast(b_info2);
+    broadcaster.request_broadcast(buf2, client.id);
 }
 
 /// Garbage Collect Dead Clients
@@ -246,8 +201,6 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
 
     } else {
         //Just a message
-        var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
-
         var pos: usize = 13;
         var msg: [64]u8 = [_]u8{0x20} ** 64;
 
@@ -257,12 +210,9 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             msg[pos] = cmd[pos - 13];
         }
 
+        var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
         try protocol.make_message(buf, 0, msg[0..]);
-        var b_info = try allocator.create(BroadcastInfo); 
-        b_info.buf = buf;
-        b_info.exclude_id = 0;
-
-        try request_broadcast(b_info);
+        broadcaster.request_broadcast(buf, 0);
     }
 }
 
@@ -301,7 +251,7 @@ pub fn run() !void {
         }
 
         // Broadcast all events
-        broadcast_all();
+        broadcaster.broadcast_all(&allocator, client_list[0..]);
 
         // Check Client
         var conn = socket.accept() catch |err| switch (err) {
