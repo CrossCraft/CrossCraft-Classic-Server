@@ -169,6 +169,20 @@ fn send_message_to_client(msg: []const u8, sender_id: u8) !void {
     }
 }
 
+fn get_client(name: []const u8) ?*Client {
+    var i: usize = 1;
+    while(i < 128) : (i += 1){
+        if(client_list[i] != null){
+            var name2 = std.mem.sliceTo(client_list[i].?.username[0..], 0);
+            if(std.mem.eql(u8, name, name2)){
+                return client_list[i];
+            }
+        }
+    }
+
+    return null;
+}
+
 /// Parses a given command or text
 /// cmd - The command input
 pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
@@ -193,6 +207,72 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
                 try send_message_to_client("&e/ip-unban <user> -- IP Unbans user from the server", sender_id);
                 try send_message_to_client("&e/op <user> -- Makes user an operator", sender_id);
                 try send_message_to_client("&e/deop <user> -- Removes another user's operator status", sender_id);
+                try send_message_to_client("&e/stop -- Stops the server", sender_id);
+            }
+        } else if (std.mem.eql(u8, "/list", cmd_first)) {
+            try send_message_to_client("&eCurrent Players:", sender_id);
+            var i: usize = 1;
+            while(i < 128): (i += 1){
+                if(client_list[i] != null){
+                    var buf: [18]u8 = undefined;
+                    buf[0] = '&';
+                    buf[1] = 'a';
+                    var pos: usize = 2;
+                    while(pos < 16 and client_list[i].?.username[pos - 2] != 0) : (pos += 1) {
+                        buf[pos] = client_list[i].?.username[pos - 2];
+                    }
+                    try send_message_to_client(buf[0..pos], sender_id);
+                }
+            }
+        } else if(std.mem.eql(u8, "/msg", cmd_first)) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+
+            std.debug.print("MSG {s}\n", .{cmd_second});
+
+            var client = get_client(cmd_second);
+            if(client == null){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            std.debug.print("MSG\n", .{});
+
+            var cmd_remain = cmd[cmd_first.len+1+cmd_second.len+1..];
+            var buf: [256]u8 = undefined;
+            var user = if(sender_id == 0) "Console" else std.mem.sliceTo(client_list[sender_id].?.username[0..], 0);
+
+            std.debug.print("User {s}\n", .{user});
+
+            var msg = try std.fmt.bufPrint(buf[0..], "&7[{s}->{s}]: {s}", .{ user, cmd_second, cmd_remain});
+
+            std.debug.print("MSG\n", .{});
+
+            try send_message_to_client(msg[0..64], sender_id);
+            try send_message_to_client(msg[0..64], client.?.id);
+        } else if(std.mem.eql(u8, "/tp", cmd_first)) {
+            var pos = cmd_first.len + 1;
+            var cmd_second = std.mem.sliceTo(cmd[pos..], ' ');
+            pos += cmd_second.len + 1;
+            var cmd_third = std.mem.sliceTo(cmd[pos..], ' ');
+            pos += cmd_second.len + 1;
+            var cmd_fourth = std.mem.sliceTo(cmd[pos..], ' ');
+
+            var x = std.fmt.parseInt(u16, cmd_second, 0) catch 0;
+            var y = std.fmt.parseInt(u16, cmd_third, 0) catch 0;
+            var z = std.fmt.parseInt(u16, cmd_fourth, 0) catch 0;
+
+            var client = client_list[sender_id].?;
+            client.x = x * 32 - 16;
+            client.y = y * 32 - 16;
+            client.z = z * 32 - 16;
+            client.yaw = 0;
+            client.pitch = 0;
+
+            var buf = try protocol.create_packet(&allocator, protocol.Packet.PlayerTeleport);
+            defer allocator.free(buf);
+            try protocol.make_teleport_player(buf, 255, client.x, client.y, client.z, client.yaw, client.pitch);
+            if(sender_id != 0){
+                client.send(buf);
             }
         } else {
             std.debug.print("Error: Unknown command {s}\n", .{cmd_first});
