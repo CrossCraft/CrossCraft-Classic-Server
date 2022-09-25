@@ -202,6 +202,73 @@ fn gc_dead_clients() !void {
     }
 }
 
+fn send_message_to_client(msg: []const u8, sender_id: u8) !void {
+    if(sender_id == 0){
+        std.debug.print("{s}\n", .{msg});
+    } else {
+        var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
+        defer allocator.free(buf);
+        try protocol.make_message(buf, @bitCast(i8, sender_id), msg);
+        
+        if(client_list[sender_id] != null){
+            client_list[sender_id].?.send(buf);
+        }
+    }
+}
+
+/// Parses a given command or text
+/// cmd - The command input
+pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
+
+    if(cmd[0] == '/') {
+        //It's a command
+        var cmd_first = std.mem.sliceTo(cmd, ' ');
+        if(cmd_first.len == cmd.len){
+            cmd_first = std.mem.sliceTo(cmd, '\n');
+        }
+
+        if(std.mem.eql(u8, "/help", cmd_first)) {
+            try send_message_to_client("&eHelp: ", sender_id);
+            try send_message_to_client("&e/msg <user> <message_contents> -- Send message to a user", sender_id);
+            try send_message_to_client("&e/list -- List all current players", sender_id);
+            try send_message_to_client("&e/tp <x> <y> <z> -- Teleports you to the location if valid", sender_id);
+            if(sender_id == 0 or client_list[sender_id].?.is_op != 0) {
+                try send_message_to_client("&e/kick <user> -- Kicks user from the server", sender_id);
+                try send_message_to_client("&e/ban <user> -- Bans user from the server", sender_id);
+                try send_message_to_client("&e/unban <user> -- Unbans user from the server", sender_id);
+                try send_message_to_client("&e/ip-ban <user> -- IP Bans user from the server", sender_id);
+                try send_message_to_client("&e/ip-unban <user> -- IP Unbans user from the server", sender_id);
+                try send_message_to_client("&e/op <user> -- Makes user an operator", sender_id);
+                try send_message_to_client("&e/deop <user> -- Removes another user's operator status", sender_id);
+            }
+        } else {
+            std.debug.print("Error: Unknown command {s}\n", .{cmd_first});
+            try send_message_to_client("&cUnknown command!", sender_id);
+        }
+
+    } else {
+        //Just a message
+        var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
+
+        var pos: usize = 13;
+        var msg: [64]u8 = [_]u8{0x20} ** 64;
+
+        std.mem.copy(u8, msg[0..], "&4[Console]: ");
+        
+        while(pos < 64 and pos - 13 < cmd.len and (cmd[pos - 13] != '\n' and cmd[pos - 13] != '\r' and cmd[pos - 13] != 0)) : (pos += 1){
+            msg[pos] = cmd[pos - 13];
+        }
+
+        try protocol.make_message(buf, 0, msg[0..]);
+        var b_info = BroadcastInfo{
+            .buf = buf,
+            .exclude_id = 0,
+        };
+
+        try request_broadcast(b_info);
+    }
+}
+
 /// Command parser loop REPL
 fn command_loop() !void {
     var console_in = std.io.getStdIn();
@@ -212,8 +279,8 @@ fn command_loop() !void {
         var console_input : [256]u8 = [_]u8{0} ** 256;
         var cmd = try console_reader.read(console_input[0..]);
 
-        if(cmd > 0)
-            std.debug.print("Command: {s}\n", .{console_input[0..cmd]});
+        if(cmd > 0)        
+            try parse_command(console_input[0..cmd], 0);
     }
 }
 
@@ -229,7 +296,7 @@ pub fn run() !void {
         ticks_alive += 1;
 
         // PING ALL CLIENTS
-        if (ticks_alive % 600 == 0) {
+        if (ticks_alive % 100 == 0) {
             try ping_all();
 
             // Garbage Collect Dead Clients
