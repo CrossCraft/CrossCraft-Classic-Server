@@ -11,7 +11,7 @@ var allocator: std.mem.Allocator = undefined;
 var fba: std.heap.FixedBufferAllocator = undefined;
 
 /// Packet Queue
-var packet_queue: std.ArrayList(BroadcastInfo) = undefined;
+var packet_queue: std.ArrayList(*BroadcastInfo) = undefined;
 var packet_queue_lock: std.Thread.Mutex = undefined;
 
 /// Server Socket
@@ -44,7 +44,7 @@ pub fn init() !void {
     try users.init(allocator);
 
     // Init packet list
-    packet_queue = std.ArrayList(BroadcastInfo).init(allocator);
+    packet_queue = std.ArrayList(*BroadcastInfo).init(allocator);
 
     // Create brand new socket handle
     socket = try network.Socket.create(.ipv4, .tcp);
@@ -68,7 +68,7 @@ pub const BroadcastInfo = struct { buf: []u8, exclude_id: u8 };
 
 /// Request Broadcast
 /// Adds packet to the queue to broadcast to
-pub fn request_broadcast(info: BroadcastInfo) !void {
+pub fn request_broadcast(info: *BroadcastInfo) !void {
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
     try packet_queue.append(info);
@@ -85,9 +85,9 @@ fn broadcast_all() void {
             if (client_list[i] != null and i != b_info.exclude_id) {
                 var client = client_list[i].?;
                 client.send(b_info.buf);
+                std.time.sleep(1000 * 1000);
             }
         }
-        allocator.free(b_info.buf);
     }
 
     packet_queue.clearAndFree();
@@ -141,10 +141,9 @@ pub fn new_player_spawn(client: *Client) !void {
 fn broadcast_client_kill(client: *Client) !void {
     var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
     protocol.make_despawn_player(buf, client.id);
-    var b_info = BroadcastInfo{
-        .buf = buf,
-        .exclude_id = client.id,
-    };
+    var b_info = try allocator.create(BroadcastInfo); 
+    b_info.buf = buf;
+    b_info.exclude_id = client.id;
     try request_broadcast(b_info);
 
     var buf2 = try protocol.create_packet(&allocator, protocol.Packet.Message);
@@ -170,10 +169,9 @@ fn broadcast_client_kill(client: *Client) !void {
 
     try protocol.make_message(buf2, 0, msg[0..]);
 
-    var b_info2 = BroadcastInfo{
-        .buf = buf2,
-        .exclude_id = client.id,
-    };
+    var b_info2 = try allocator.create(BroadcastInfo); 
+    b_info2.buf = buf2;
+    b_info2.exclude_id = client.id;
     try request_broadcast(b_info2);
 }
 
@@ -260,10 +258,9 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
         }
 
         try protocol.make_message(buf, 0, msg[0..]);
-        var b_info = BroadcastInfo{
-            .buf = buf,
-            .exclude_id = 0,
-        };
+        var b_info = try allocator.create(BroadcastInfo); 
+        b_info.buf = buf;
+        b_info.exclude_id = 0;
 
         try request_broadcast(b_info);
     }
