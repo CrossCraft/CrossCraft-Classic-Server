@@ -70,7 +70,7 @@ fn get_name(packetID: u8) []const u8 {
 
 fn peekID(self: *Self) i8 {
     var id : i8 = -1;
-    var amt = std.os.recv(self.conn.internal, std.mem.asBytes(&id), std.os.linux.MSG.PEEK);
+    var amt = self.conn.peek(std.mem.asBytes(&id));
 
     if(amt) {
         var a = amt catch unreachable;
@@ -98,7 +98,7 @@ fn receive(self: *Self) !void {
             return;
         }
 
-        _ = try std.os.recv(self.conn.internal, self.packet_buffer[0..packet_size], 0);
+        _ = try self.conn.receive(self.packet_buffer[0..packet_size]);
 
         self.has_packet = true;
     }
@@ -494,7 +494,7 @@ pub fn handle(self: *Self) !void {
     while (self.is_connected) {
         std.time.sleep(50 * 1000 * 1000);
         try self.receive();
-
+        
         if(self.has_packet){
             try self.process();
         }
