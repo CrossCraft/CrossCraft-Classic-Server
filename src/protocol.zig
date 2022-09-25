@@ -113,6 +113,8 @@ pub fn make_spawn_player(buf: []u8, pID: u8, username: []const u8, x: u16, y: u1
 
     var fbstream = std.io.fixedBufferStream(buf[2..]);
     try fbstream.writer().writeAll(username);
+    var fill = [_]u8{0x20} ** 48;
+    try fbstream.writer().writeAll(fill[0..]);
     try fbstream.writer().writeIntBig(u16, x);
     try fbstream.writer().writeIntBig(u16, y);
     try fbstream.writer().writeIntBig(u16, z);

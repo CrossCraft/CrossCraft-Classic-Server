@@ -20,7 +20,6 @@ packet_buffer: [131]u8,
 /// Username of client
 username: [16]u8,
 ip: [15]u8,
-
 is_loaded: bool,
 is_op: u8,
 allocator: *std.mem.Allocator,
@@ -31,6 +30,7 @@ z: u16,
 yaw: u8,
 pitch: u8,
 send_lock: std.Thread.Mutex = undefined,
+has_packet: bool = false,
 
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
@@ -67,29 +67,39 @@ fn get_name(packetID: u8) []const u8 {
     };
 }
 
-/// Read buffer from socket
-fn readsock(self: *Self, buf: []u8) !void {
-    if (!self.is_connected)
-        return;
+fn peekID(self: *Self) i8 {
+    var id : i8 = -1;
+    var amt = std.os.recv(self.conn.internal, std.mem.asBytes(&id), std.os.linux.MSG.PEEK);
 
-    const amt = try self.conn.receive(buf);
+    if(amt) {
+        var a = amt catch unreachable;
+        if(a == 1)
+            return id;
+    } else |err| {
+        switch(err) {
+            error.WouldBlock => return -1,
+            else => {self.is_connected = false; return -1;},
+        }
+    }
 
-    if (amt == 0)
-        self.is_connected = false;
+    return id;
 }
-
 /// Receive a packet
 fn receive(self: *Self) !void {
-    if (self.is_connected) {
-        _ = try self.conn.peek(self.packet_buffer[0..1]);
+    if (self.is_connected and !self.has_packet) {        
+        var id = self.peekID();
+        if(id < 0)
+            return;
 
-        var packet_size = get_size(self.packet_buffer[0]);
+        var packet_size = get_size(@bitCast(u8, id));
         if (packet_size == 0) {
             self.is_connected = false;
             return;
         }
 
-        try self.readsock(self.packet_buffer[0..packet_size]);
+        _ = try std.os.recv(self.conn.internal, self.packet_buffer[0..packet_size], 0);
+
+        self.has_packet = true;
     }
 }
 
@@ -98,10 +108,9 @@ fn copyUsername(self: *Self) void {
     var i: usize = 0;
 
     // ZERO out the Username
-    while (i < 16) : (i += 1) {
-        self.username[i] = 0;
+    for(self.username) |*c| {
+        c.* = 0;
     }
-    i = 0;
 
     // Set username = packet username
     while (i < 16) : (i += 1) {
@@ -125,7 +134,7 @@ pub fn send(self: *Self, buf: []u8) void {
     defer self.send_lock.unlock();
 
     self.conn.writer().writeAll(buf) catch |err| switch (err) {
-        error.WouldBlock => send(self, buf),
+        error.WouldBlock => self.send(buf),
         else => {
             self.is_connected = false;
         },
@@ -287,14 +296,20 @@ fn send_init(self: *Self) !void {
     // Send Join Message
     try self.join_message();
 
-    //Spawn Player
+    //Spawn Player Broadcast
     var buf2 = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
     try protocol.make_spawn_player(buf2, self.id, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
     var b_info = server.BroadcastInfo{
         .buf = buf2,
-        .exclude_id = 0,
+        .exclude_id = self.id,
     };
     try server.request_broadcast(b_info);
+
+    //Spawn Player
+    buf = try protocol.create_packet(self.allocator, protocol.Packet.SpawnPlayer);
+    try protocol.make_spawn_player(buf, 255, self.username[0..], self.x, self.y, self.z, self.yaw, self.pitch);
+    self.send(buf);
+    self.allocator.free(buf);
 
     // Spawn all other players
     try server.new_player_spawn(self);
@@ -312,7 +327,7 @@ fn send_init(self: *Self) !void {
     self.allocator.free(buf);
 }
 
-fn disconnect(self: *Self, reason: []const u8) !void {
+pub fn disconnect(self: *Self, reason: []const u8) !void {
     var buf = try protocol.create_packet(self.allocator, protocol.Packet.Disconnect);
     try protocol.make_disconnect(buf, reason);
     self.send(buf);
@@ -362,7 +377,7 @@ fn process(self: *Self) !void {
             } else {
                 // Check banned
                 if(user.?.banned){
-                    try self.disconnect("&7Banned.");
+                    try self.disconnect("&4Banned.");
                     return;
                 }
             }
@@ -381,7 +396,7 @@ fn process(self: *Self) !void {
             } else {
                 // Check IP banned
                 if(user.?.ip_banned) {
-                    try self.disconnect("&7Banned.");
+                    try self.disconnect("&4Banned.");
                     return;
                 }
 
@@ -420,7 +435,7 @@ fn process(self: *Self) !void {
             try protocol.make_set_block(buf, x, y, z, world.worldData[idx]);
             var b_info = server.BroadcastInfo{
                 .buf = buf,
-                .exclude_id = 0,
+                .exclude_id = self.id,
             };
             try server.request_broadcast(b_info);
         },
@@ -448,6 +463,13 @@ fn process(self: *Self) !void {
 
             var msg: [64]u8 = undefined;
             _ = try reader.readAll(msg[0..]);
+
+            if(msg[0] == '/'){
+                //It's a command
+                try server.parse_command(msg[0..], self.id);
+                self.has_packet = false;
+                return;
+            }
 
             var msg2: [64]u8 = undefined;
 
@@ -477,6 +499,8 @@ fn process(self: *Self) !void {
             try server.request_broadcast(b_info);
         },
     }
+
+    self.has_packet = false;
 }
 
 /// Handler thread
@@ -488,7 +512,10 @@ pub fn handle(self: *Self) !void {
     while (self.is_connected) {
         std.time.sleep(50 * 1000 * 1000);
         try self.receive();
-        try self.process();
+        
+        if(self.has_packet){
+            try self.process();
+        }
     }
 
     std.debug.print("Client connection closed!\n", .{});
