@@ -420,7 +420,6 @@ fn process(self: *Self) !void {
             if (mode == 0x00) {
                 //Destroy
                 world.worldData[idx] = 0;
-                _ = btype;
             } else {
                 //Create
                 world.worldData[idx] = btype;
@@ -495,8 +494,9 @@ pub fn handle(self: *Self) !void {
         std.time.sleep(50 * 1000 * 1000);
         try self.receive();
         
-        if(self.has_packet){
+        while(self.has_packet){
             try self.process();
+            try self.receive();
         }
     }
 

@@ -34,7 +34,7 @@ pub fn build(b: *std.build.Builder) void {
         "zlib/uncompr.c",
         "zlib/zutil.c",
     }, &[_][]const u8{
-        "-std=c11",
+        "-std=c90",
     });
     exe.linkLibC();
     exe.use_stage1 = true;
