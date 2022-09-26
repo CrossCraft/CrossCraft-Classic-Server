@@ -187,6 +187,8 @@ fn get_client(name: []const u8) ?*Client {
 /// cmd - The command input
 pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
 
+    var super : bool = sender_id == 0 or client_list[sender_id].?.is_op != 0;
+
     if(cmd[0] == '/') {
         //It's a command
         var cmd_first = std.mem.sliceTo(cmd, ' ');
@@ -273,6 +275,133 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             try protocol.make_teleport_player(buf, 255, client.x, client.y, client.z, client.yaw, client.pitch);
             if(sender_id != 0){
                 client.send(buf);
+            }
+        } else if(std.mem.eql(u8, "/kick", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var client = get_client(cmd_second);
+            if(client == null){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            try client.?.disconnect("You were kicked!");
+
+        } else if(std.mem.eql(u8, "/stop", cmd_first) and super) {
+            var i : usize = 1;
+            while(i < 128) : (i += 1) {
+                if(client_list[i] != null){
+                    try client_list[i].?.disconnect("Server stopping!");
+                }
+            }
+            world.save("save.ccc");
+            std.os.exit(0);
+        } else if(std.mem.eql(u8, "/ban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var client = get_client(cmd_second);
+            if(client == null){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            var user = try users.ban_user(client.?.username[0..]);
+            if(!user){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            try client.?.disconnect("You were banned!");
+        } else if(std.mem.eql(u8, "/unban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var buf: [16]u8 = [_]u8{0} ** 16;
+            var pos: usize = 0;
+            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+                buf[pos] = cmd_second[pos];
+            }
+
+            var user = try users.unban_user(buf[0..]);
+            if(!user){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+        } else if(std.mem.eql(u8, "/ip-ban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var client = get_client(cmd_second);
+            if(client == null){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            var user = try users.ip_ban_user(client.?.username[0..]);
+            if(!user){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            try client.?.disconnect("You were banned!");
+        } else if(std.mem.eql(u8, "/ip-unban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var buf: [16]u8 = [_]u8{0} ** 16;
+            var pos: usize = 0;
+            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+                buf[pos] = cmd_second[pos];
+            }
+
+            var user = try users.ip_unban_user(buf[0..]);
+            if(!user){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+        } else if(std.mem.eql(u8, "/op", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var buf: [16]u8 = [_]u8{0} ** 16;
+            var pos: usize = 0;
+            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+                buf[pos] = cmd_second[pos];
+            }
+
+            var user = try users.op_user(buf[0..]);
+            if(!user){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            var client = get_client(cmd_second);
+            if(client != null){
+                try send_message_to_client("&bYou were opped!", client.?.id);
+                client.?.is_op = 0x64;
+            }
+        } else if(std.mem.eql(u8, "/deop", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+            cmd_second = std.mem.sliceTo(cmd_second, '\n');
+
+            var buf: [16]u8 = [_]u8{0} ** 16;
+            var pos: usize = 0;
+            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+                buf[pos] = cmd_second[pos];
+            }
+
+            var user = try users.op_user(buf[0..]);
+            if(!user){
+                try send_message_to_client("Couldn't find player!", sender_id);
+                return;
+            }
+
+            var client = get_client(cmd_second);
+            if(client != null){
+                try send_message_to_client("&7You were deopped!", client.?.id);
+                client.?.is_op = 0x00;
             }
         } else {
             std.debug.print("Error: Unknown command {s}\n", .{cmd_first});
