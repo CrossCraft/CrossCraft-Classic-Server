@@ -1,4 +1,4 @@
-<div align=center style="display:inline-block"><img src="https://forthebadge.com/images/badges/open-source.svg"><img src=./branding/logo-cracked-splash-classic.png><br><img src="./branding/made-with-zig.svg"></div>
+<div align=center style="display:inline-block"><img src=./branding/logo-cracked-splash-classic.png><br><img src="https://forthebadge.com/images/badges/open-source.svg"><img src="./branding/made-with-zig.svg"></div>
 
 ---
 A Minecraft Server compatible with CrossCraft Classic and all standard Minecraft Classic clients. This server implements Protocol Version 7 (Compatible with Minecraft Classic v0.30)
