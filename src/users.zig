@@ -35,9 +35,9 @@ pub fn get_user_ip(ip: []const u8) ?*User {
     return null;
 }
 
-pub fn ban_user(name: []const u8) bool {
+pub fn ban_user(name: []const u8) !bool {
     var user = get_user_name(name);
-    if (user) {
+    if (user != null) {
         user.?.banned = true;
     } else {
         return false;
@@ -47,9 +47,9 @@ pub fn ban_user(name: []const u8) bool {
     return true;
 }
 
-pub fn ip_ban_user(name: []const u8) void {
+pub fn ip_ban_user(name: []const u8) !bool {
     var user = get_user_name(name);
-    if (user) {
+    if (user != null) {
         user.?.ip_banned = true;
     } else {
         return false;
@@ -59,9 +59,9 @@ pub fn ip_ban_user(name: []const u8) void {
     return true;
 }
 
-pub fn unban_user(name: []const u8) void {
+pub fn unban_user(name: []const u8) !bool {
     var user = get_user_name(name);
-    if (user) {
+    if (user != null) {
         user.?.banned = false;
     } else {
         return false;
@@ -71,9 +71,9 @@ pub fn unban_user(name: []const u8) void {
     return true;
 }
 
-pub fn ip_unban_user(name: []const u8) void {
+pub fn ip_unban_user(name: []const u8) !bool {
     var user = get_user_name(name);
-    if (user) {
+    if (user != null) {
         user.?.ip_banned = false;
     } else {
         return false;
@@ -83,9 +83,9 @@ pub fn ip_unban_user(name: []const u8) void {
     return true;
 }
 
-pub fn op_user(name: []const u8) void {
+pub fn op_user(name: []const u8) !bool {
     var user = get_user_name(name);
-    if (user) {
+    if (user != null) {
         user.?.op = true;
     } else {
         return false;
@@ -95,9 +95,9 @@ pub fn op_user(name: []const u8) void {
     return true;
 }
 
-pub fn deop_user(name: []const u8) void {
+pub fn deop_user(name: []const u8) !bool {
     var user = get_user_name(name);
-    if (user) {
+    if (user != null) {
         user.?.op = false;
     } else {
         return false;
