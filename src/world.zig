@@ -5,14 +5,13 @@ const zlib = @cImport({
 });
 
 var alloc: *std.mem.Allocator = undefined;
-pub var worldData: []u8 = undefined;
 pub const size: usize = 256 * 64 * 256;
+pub var worldData: [size]u8 = undefined;
 var tick_count: usize = 0;
 
 pub fn init(allocator: *std.mem.Allocator) !void {
     alloc = allocator;
-    worldData = try allocator.alloc(u8, 256 * 64 * 256);
-    @memset(worldData.ptr, 0, worldData.len);
+    @memset(worldData[0..], 0, worldData.len);
 
     var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
     if (file) {
@@ -64,7 +63,7 @@ pub fn load() void {
     var toss: [3]f32 = undefined;
     _ = zlib.gzread(save_file, &toss[0], @sizeOf([3]f32));
 
-    _ = zlib.gzread(save_file, worldData.ptr, 256 * 64 * 256);
+    _ = zlib.gzread(save_file, worldData[0..], 256 * 64 * 256);
     _ = zlib.gzclose(save_file);
 }
 
@@ -78,10 +77,10 @@ pub fn save(name: []const u8) void {
 
     var toss: [3]u32 = [_]u32{ 256, 64, 256 };
     _ = zlib.gzwrite(save_file, &toss[0], @sizeOf([3]u32));
-    _ = zlib.gzwrite(save_file, worldData.ptr, 256 * 64 * 256);
+    _ = zlib.gzwrite(save_file, worldData[0..], 256 * 64 * 256);
     _ = zlib.gzclose(save_file);
 }
 
 pub fn deinit() void {
-    alloc.free(worldData);
+    
 }

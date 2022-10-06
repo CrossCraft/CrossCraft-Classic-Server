@@ -6,10 +6,13 @@ const protocol = @import("protocol.zig");
 const users = @import("users.zig");
 const broadcaster = @import("broadcaster.zig");
 
+const RAM_SIZE: usize = 12 * 1000 * 1000;
+
 /// Fixed Buffer Allocation
-var ram_buffer: [16 * 1000 * 1000]u8 = undefined;
+var ram_buffer: [RAM_SIZE]u8 = undefined;
 var allocator: std.mem.Allocator = undefined;
 var fba: std.heap.FixedBufferAllocator = undefined;
+var gpa: std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}) = undefined;
 
 /// Server Socket
 var socket: network.Socket = undefined;
@@ -26,7 +29,10 @@ pub fn init() !void {
 
     // Setup Fixed Buffer Allocator
     fba = std.heap.FixedBufferAllocator.init(&ram_buffer);
-    allocator = fba.allocator();
+    gpa = std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}){};
+    gpa.backing_allocator = fba.allocator();
+    gpa.setRequestedMemoryLimit(RAM_SIZE);
+    allocator = gpa.allocator();
 
     // Init world
     try world.init(&allocator);
@@ -68,15 +74,14 @@ fn get_available_ID() i8 {
 }
 
 fn ping_all() !void {
-    var buf = try protocol.create_packet(&allocator, protocol.Packet.Ping);
-    protocol.make_ping(buf);
-    defer allocator.free(buf);
+    var buf : [1]u8 = undefined;
+    buf[0] = 0x01;
 
     var i: usize = 1;
     while (i < 128) : (i += 1) {
         if (client_list[i] != null) {
             var client = client_list[i].?;
-            client.send(buf);
+            client.send(buf[0..]);
         }
     }
 }
@@ -296,6 +301,8 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
                 }
             }
             world.save("save.ccc");
+            deinit();
+            _ = gpa.detectLeaks();
             std.os.exit(0);
         } else if(std.mem.eql(u8, "/ban", cmd_first) and super) {
             var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
@@ -453,6 +460,7 @@ pub fn run() !void {
 
         // PING ALL CLIENTS
         if (ticks_alive % 100 == 0) {
+            std.debug.print("TOTAL BYTES: {} / {}\n", .{gpa.total_requested_bytes, RAM_SIZE});
             try ping_all();
 
             // Garbage Collect Dead Clients

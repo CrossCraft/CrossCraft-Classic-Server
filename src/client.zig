@@ -176,7 +176,7 @@ fn compress_level(compBuf: []u8) !usize {
     }
 
     strm.avail_in = world.size;
-    strm.next_in = world.worldData.ptr;
+    strm.next_in = world.worldData[0..];
     ret = zlib.deflate(&strm, zlib.Z_FINISH);
 
     switch (ret) {
@@ -234,7 +234,7 @@ fn send_level(self: *Self) !void {
         self.send(buf);
 
         //Delay Send
-        std.time.sleep(1000 * 1000 * 10);
+        std.time.sleep(1000 * 1000 * 5);
     }
 }
 
