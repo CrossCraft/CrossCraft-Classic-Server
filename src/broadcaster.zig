@@ -51,7 +51,7 @@ pub fn broadcast_all(alloc: *std.mem.Allocator, client_list: []?*Client) void {
 
         var i: usize = 1;
         while (i < 128) : (i += 1) {
-            if (client_list[i] != null and i != b_info.exclude_id) {
+            if (client_list[i] != null and i != b_info.exclude_id and client_list[i].?.is_ready) {
                 var client = client_list[i].?;
                 client.send(b_info.buf);
                 std.time.sleep(1000 * 1000);

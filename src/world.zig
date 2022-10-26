@@ -9,8 +9,13 @@ pub const size: usize = 256 * 64 * 256;
 pub var worldData: [size]u8 = undefined;
 var tick_count: usize = 0;
 
+const RndGen = std.rand.DefaultPrng;
+var rnd : RndGen = undefined;
+
 pub fn init(allocator: *std.mem.Allocator) !void {
     alloc = allocator;
+    rnd = RndGen.init(0);
+
     @memset(worldData[0..], 0, worldData.len);
 
     var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
@@ -29,8 +34,68 @@ pub fn init(allocator: *std.mem.Allocator) !void {
     save("save.ccc");
 }
 
+fn getIdx(x: u32, y: u32, z: u32) usize {
+    return (y * 256 * 256) + (z * 256) + x;
+}
+
+fn rtick() void {
+    var x = rnd.random().int(u8);
+    var y = rnd.random().int(u8) % 64;
+    var z = rnd.random().int(u8);
+    var idx = getIdx(x, y, z);
+    
+    var blk = worldData[idx];
+
+    if(blk == 6) {
+        //Sapling
+        std.debug.print("TODO: Sapling!\n", .{});
+        return;
+    }
+
+    var is_dark : bool = false;
+
+    if(y + 1 >= 64)
+        return;
+
+    var blk2 = worldData[getIdx(x, y + 1, z)];
+    if(blk2 == 0 or blk2 == 6 or blk2 == 18 or blk2 == 20 or blk2 == 37 or blk2 == 38 or blk2 == 39 or blk2 == 40) {
+        is_dark = true;
+    }
+
+    if(blk == 3 and !is_dark) {
+        // set
+        return;
+    }
+    
+    if(blk == 2 and is_dark) {
+        // set
+        return;
+    }
+
+    if(blk == 37 or blk == 38) {
+        if (is_dark) {
+            // set
+        }
+        return;
+    }
+
+    if(blk == 39 or blk == 40) {
+        if (!is_dark) {
+            // set
+        }
+        return;
+    }
+}
+
 pub fn update() void {
-    //TODO: Update the world with RTick and UpdateList
+    //TODO: Update the world with UpdateList
+
+    if(tick_count % 5 == 0) {
+        var i : usize = 0;
+        while(i < 256 * 4) : (i += 1) {
+            rtick();
+        }
+    }
 
     tick_count += 1;
 

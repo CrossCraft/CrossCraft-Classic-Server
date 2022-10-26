@@ -30,7 +30,7 @@ pub fn init() !void {
     // Setup Fixed Buffer Allocator
     fba = std.heap.FixedBufferAllocator.init(&ram_buffer);
     gpa = std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}){};
-    gpa.backing_allocator = fba.allocator();
+    gpa.backing_allocator = std.heap.page_allocator;
     gpa.setRequestedMemoryLimit(RAM_SIZE);
     allocator = gpa.allocator();
 
@@ -79,7 +79,7 @@ fn ping_all() !void {
 
     var i: usize = 1;
     while (i < 128) : (i += 1) {
-        if (client_list[i] != null) {
+        if (client_list[i] != null and client_list[i].?.is_ready) {
             var client = client_list[i].?;
             client.send(buf[0..]);
         }

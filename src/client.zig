@@ -32,6 +32,7 @@ yaw: u8,
 pitch: u8,
 send_lock: std.Thread.Mutex = undefined,
 has_packet: bool = false,
+is_ready: bool = false,
 
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
@@ -147,6 +148,7 @@ pub fn send(self: *Self, buf: []u8) void {
 }
 
 fn compress_level(compBuf: []u8) !usize {
+    std.debug.print("Compressing Level\n", .{});
     var strm: zlib.z_stream = undefined;
     strm.zalloc = null;
     strm.zfree = null;
@@ -159,6 +161,7 @@ fn compress_level(compBuf: []u8) !usize {
     strm.avail_out = 0;
     strm.next_out = zlib.Z_NULL;
 
+    std.debug.print("Deflate Init2\n", .{});
     var ret = zlib.deflateInit2(&strm, zlib.Z_BEST_COMPRESSION, zlib.Z_DEFLATED, (zlib.MAX_WBITS + 16), 8, zlib.Z_DEFAULT_STRATEGY);
     if (ret != zlib.Z_OK)
         return error.ZLIB_INIT_FAIL;
@@ -166,6 +169,7 @@ fn compress_level(compBuf: []u8) !usize {
     strm.avail_out = @intCast(c_uint, compBuf.len);
     strm.next_out = compBuf.ptr;
 
+    std.debug.print("Deflate Int\n", .{});
     ret = zlib.deflate(&strm, zlib.Z_NO_FLUSH);
 
     switch (ret) {
@@ -177,6 +181,8 @@ fn compress_level(compBuf: []u8) !usize {
 
     strm.avail_in = world.size;
     strm.next_in = world.worldData[0..];
+    
+    std.debug.print("Deflate World\n", .{});
     ret = zlib.deflate(&strm, zlib.Z_FINISH);
 
     switch (ret) {
@@ -186,19 +192,23 @@ fn compress_level(compBuf: []u8) !usize {
         else => {},
     }
 
+    std.debug.print("Deflate End\n", .{});
     _ = zlib.deflateEnd(&strm);
     return strm.total_out;
 }
 
 fn send_level(self: *Self) !void {
+    std.debug.print("Sending Level\n", .{});
     // Create Compression Buffer
     var compBuf: []u8 = try self.allocator.alloc(u8, world.size + 4);
+    std.debug.print("Buf Alloc\n", .{});
     // Dealloc at end
     defer self.allocator.free(compBuf);
 
     // Compress and Get Length
     var len = try compress_level(compBuf);
 
+    std.debug.print("Sending Level Data\n", .{});
     // Send
     var bytes: usize = 0;
     while (bytes < len) {
@@ -229,6 +239,9 @@ fn send_level(self: *Self) !void {
 
         //PERCENT
         buf[1027] = @intCast(u8, (bytes * 100) / len);
+
+        
+        std.debug.print("Percent {}\n", .{buf[1027]});
 
         //SEND
         self.send(buf);
@@ -403,6 +416,7 @@ fn process(self: *Self) !void {
             
 
             try self.send_init();
+            self.is_ready = true;
         },
         PacketType.SetBlock => {
             var fbstream = std.io.fixedBufferStream(self.packet_buffer[1..]);
