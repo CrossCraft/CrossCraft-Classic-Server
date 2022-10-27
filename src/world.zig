@@ -27,6 +27,14 @@ pub fn init(allocator: *std.mem.Allocator) !void {
     } else |err| {
         //We have an error, so generate world
         //TODO: Generate world
+
+        var x : u32 = 0;
+        var z : u32 = 0;
+        while(z < 256) : (z += 1) {
+            while(x < 256) : (x += 1) {
+                worldData[getIdx(x, 0, z)] = 7;
+            }
+        }
         std.debug.print("Error: {s}\n", .{@errorName(err)});
         std.debug.print("Couldn't load save, generating world.\n", .{});
     }
@@ -34,7 +42,7 @@ pub fn init(allocator: *std.mem.Allocator) !void {
     save("save.ccc");
 }
 
-fn getIdx(x: u32, y: u32, z: u32) usize {
+pub fn getIdx(x: u32, y: u32, z: u32) usize {
     return (y * 256 * 256) + (z * 256) + x;
 }
 

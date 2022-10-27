@@ -6,12 +6,7 @@ const protocol = @import("protocol.zig");
 const users = @import("users.zig");
 const broadcaster = @import("broadcaster.zig");
 
-const RAM_SIZE: usize = 12 * 1000 * 1000;
-
-/// Fixed Buffer Allocation
-var ram_buffer: [RAM_SIZE]u8 = undefined;
 var allocator: std.mem.Allocator = undefined;
-var fba: std.heap.FixedBufferAllocator = undefined;
 var gpa: std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}) = undefined;
 
 /// Server Socket
@@ -28,10 +23,8 @@ pub fn init() !void {
     try network.init();
 
     // Setup Fixed Buffer Allocator
-    fba = std.heap.FixedBufferAllocator.init(&ram_buffer);
     gpa = std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}){};
     gpa.backing_allocator = std.heap.page_allocator;
-    gpa.setRequestedMemoryLimit(RAM_SIZE);
     allocator = gpa.allocator();
 
     // Init world
@@ -460,7 +453,6 @@ pub fn run() !void {
 
         // PING ALL CLIENTS
         if (ticks_alive % 100 == 0) {
-            std.debug.print("TOTAL BYTES: {} / {}\n", .{gpa.total_requested_bytes, RAM_SIZE});
             try ping_all();
 
             // Garbage Collect Dead Clients
