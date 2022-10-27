@@ -5,6 +5,7 @@ const world = @import("world.zig");
 const protocol = @import("protocol.zig");
 const users = @import("users.zig");
 const broadcaster = @import("broadcaster.zig");
+const logger = @import("logger.zig");
 
 var allocator: std.mem.Allocator = undefined;
 var gpa: std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}) = undefined;

@@ -3,3 +3,4 @@ zig-out
 *.ccc
 *.dat
 users.dat
+chat.log.*

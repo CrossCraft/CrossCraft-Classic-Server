@@ -1,4 +1,5 @@
 const std = @import("std");
+const logger = @import("logger.zig");
 const Client = @import("client.zig");
 
 /// Broadcast information
@@ -62,6 +63,12 @@ pub fn broadcast_all(alloc: *std.mem.Allocator, client_list: []?*Client) void {
     var i : usize = 0;
     while(i < packet_count) : (i += 1) {
         var b_info = &packet_queue[i];
+
+
+        if(b_info.buf[0] == 0x0D) {
+            logger.log_chat(b_info.buf[1..]) catch unreachable;
+        }
+
         alloc.free(b_info.buf);
         b_info.exclude_id = 0;
     }
