@@ -28,6 +28,28 @@ pub fn noise(x: f64, y: f64, z: f64) f64 {
                      grad(permutation[bb+1], x_float-1, y_float-1, z_float-1))));
 }
 
+pub fn pnoise(x: f64, y: f64, seed: u32) {
+    return noise(x, y, @intToFloat(f64, seed));
+}
+
+pub fn onoise(octaves: usize, x: f64, y: f64, seed: u32) {
+    var sum : f64 = 0;
+    var amp : f64 = 1;
+    var freq : f64 = 1;
+
+    var i : usize = 0;
+    while(i < octaves) : (i += 1) {
+        var x_float : f64 = @intToFloat(f64, x);
+        var y_float : f64 = @intToFloat(f64, y);
+
+        sum += pnoise(x / freq, y / freq, seed) * amp;
+
+        amp *= 2;
+        freq /= 2;
+    }
+
+}
+
 fn lerp(t: f64, a: f64, b: f64) f64 {
     return a + t * (b - a);
 }
