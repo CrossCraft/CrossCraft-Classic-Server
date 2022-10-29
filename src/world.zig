@@ -1,4 +1,5 @@
 const std = @import("std");
+const generator = @import("generator.zig");
 const fs = std.fs;
 const zlib = @cImport({
     @cInclude("zlib.h");
@@ -8,42 +9,38 @@ var alloc: *std.mem.Allocator = undefined;
 pub const size: usize = 256 * 64 * 256;
 pub var worldData: [size]u8 = undefined;
 var tick_count: usize = 0;
+var seed : u32 = 0;
 
 const RndGen = std.rand.DefaultPrng;
 var rnd : RndGen = undefined;
 
 pub fn init(allocator: *std.mem.Allocator) !void {
     alloc = allocator;
-    rnd = RndGen.init(0);
+    rnd = RndGen.init(@bitCast(u64, std.time.timestamp()));
+    seed = rnd.random().int(u32);
 
     @memset(worldData[0..], 0, worldData.len);
 
-    var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
-    if (file) {
-        var f2 = file catch unreachable;
-        f2.close();
-
-        load();
-    } else |err| {
+    //var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
+    //if (file) {
+    //    var f2 = file catch unreachable;
+    //    f2.close();
+    //    load();
+    //} else |err| {
         //We have an error, so generate world
-        //TODO: Generate world
+        generator.generate(seed);
+        // std.debug.print("Error: {s}\n", .{@errorName(err)});
+        // std.debug.print("Couldn't load save, generating world.\n", .{});
+    //}
 
-        var x : u32 = 0;
-        var z : u32 = 0;
-        while(z < 256) : (z += 1) {
-            while(x < 256) : (x += 1) {
-                worldData[getIdx(x, 0, z)] = 7;
-            }
-        }
-        std.debug.print("Error: {s}\n", .{@errorName(err)});
-        std.debug.print("Couldn't load save, generating world.\n", .{});
-    }
-
-    save("save.ccc");
+    //save("save.ccc");
 }
 
 pub fn getIdx(x: u32, y: u32, z: u32) usize {
-    return (y * 256 * 256) + (z * 256) + x;
+    if(x >= 0 and x < 256 and y >= 0 and y < 64 and z >= 0 and z < 256)
+        return (y * 256 * 256) + (z * 256) + x;
+    
+    return 0;
 }
 
 fn rtick() void {
