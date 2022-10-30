@@ -1,13 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const pkgs = struct {
-    const network = std.build.Pkg {
-        .name = "network",
-        .source = .{ .path = "network/network.zig" },
-    };
-};
-
 pub fn build(b: *std.build.Builder) void {
 
     const target = b.standardTargetOptions(.{});
@@ -16,8 +9,8 @@ pub fn build(b: *std.build.Builder) void {
     const exe = b.addExecutable("Classic-Server", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
-    exe.addPackage(pkgs.network);
     exe.addIncludePath("./zlib/");
+    exe.addIncludePath("./src/");
     exe.addCSourceFiles(&[_][]const u8{
         "zlib/adler32.c",
         "zlib/crc32.c",
@@ -33,6 +26,7 @@ pub fn build(b: *std.build.Builder) void {
         "zlib/trees.c",
         "zlib/uncompr.c",
         "zlib/zutil.c",
+        "src/sock.c"
     }, &[_][]const u8{
         "-std=c90",
     });

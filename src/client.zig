@@ -1,5 +1,7 @@
 const std = @import("std");
-const network = @import("network");
+const network = @cImport({
+    @cInclude("sock.h");
+});
 const Self = @This();
 const protocol = @import("protocol.zig");
 const world = @import("world.zig");
@@ -12,7 +14,7 @@ const zlib = @cImport({
 });
 
 /// Connection State
-conn: network.Socket,
+conn: c_int,
 is_connected: bool,
 
 /// Current packet processing buffer
@@ -91,9 +93,15 @@ fn peekID(self: *Self) i8 {
 /// Receive a packet
 fn receive(self: *Self) !void {
     if (self.is_connected and !self.has_packet) {        
-        var id = self.peekID();
-        if(id < 0)
+        var id = network.peek_recv(self.conn);
+
+        if(id == -2)
             return;
+
+        if(id == -1) {
+            self.is_connected = false;
+            return;
+        }
 
         var packet_size = get_size(@bitCast(u8, id));
         if (packet_size == 0) {
@@ -101,7 +109,10 @@ fn receive(self: *Self) !void {
             return;
         }
 
-        _ = try self.conn.receive(self.packet_buffer[0..packet_size]);
+        if(network.full_recv(self.conn, self.packet_buffer[0..packet_size].ptr, @intCast(c_uint, packet_size)) < 0) {
+            self.is_connected = false;
+            return;
+        }
 
         self.has_packet = true;
     }
@@ -141,12 +152,11 @@ pub fn send(self: *Self, buf: []u8) void {
     self.send_lock.lock();
     defer self.send_lock.unlock();
 
-    self.conn.writer().writeAll(buf) catch |err| switch (err) {
-        error.WouldBlock => self.send(buf),
-        else => {
-            self.is_connected = false;
-        },
-    };
+    var res = network.conn_send(self.conn, buf.ptr, @intCast(c_uint, buf.len));
+
+    if(res < 0) {
+        self.is_connected = false;
+    }
 }
 
 fn compress_level(compBuf: []u8) !usize {
@@ -540,5 +550,5 @@ pub fn deinit(self: *Self) void {
     self.is_connected = false;
 
     // No more packets will be sent
-    self.conn.close();
+    network.close_conn(self.conn);
 }

@@ -1,5 +1,7 @@
 const std = @import("std");
-const network = @import("network");
+const network = @cImport({
+    @cInclude("sock.h");
+});
 const Client = @import("client.zig");
 const world = @import("world.zig");
 const protocol = @import("protocol.zig");
@@ -11,7 +13,6 @@ var allocator: std.mem.Allocator = undefined;
 var gpa: std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}) = undefined;
 
 /// Server Socket
-var socket: network.Socket = undefined;
 var ticks_alive: usize = 0;
 
 // ID 0 is Reserved for Console
@@ -19,10 +20,6 @@ var client_list: [128]?*Client = undefined;
 
 /// Initialize Server
 pub fn init() !void {
-
-    // Initialize Network
-    try network.init();
-
     // Setup Fixed Buffer Allocator
     gpa = std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}){};
     gpa.backing_allocator = std.heap.page_allocator;
@@ -41,17 +38,9 @@ pub fn init() !void {
     try users.init(allocator);
 
     // Create brand new socket handle
-    socket = try network.Socket.create(.ipv4, .tcp);
-    try socket.enablePortReuse(true);
+    if(network.start_server_sock() < 0)
+        return error.InitializeFail;
 
-    // Bind socket to port
-    try socket.bind(.{
-        .address = .{ .ipv4 = network.Address.IPv4.any },
-        .port = 25565,
-    });
-
-    // Listen for connections
-    try socket.listen();
     std.debug.print("Listening for connections...\n", .{});
 }
 
@@ -464,27 +453,30 @@ pub fn run() !void {
         broadcaster.broadcast_all(&allocator, client_list[0..]);
 
         // Check Client
-        var conn = socket.accept() catch |err| switch (err) {
-            error.WouldBlock => continue,
-            else => return err,
-        };
+        var conn = network.accept_new_conn();
+        
+        if(conn.fd < 0)
+            continue;
+
         // New Client Thread
         var id: i8 = get_available_ID();
 
         if (id < 0) {
-            conn.close();
+            network.close_conn(conn.fd);
             continue;
         }
 
-        var endpoint = try conn.getRemoteEndPoint();
-        var ip: [15]u8 = [_]u8{0} ** 15;
-        _ = try std.fmt.bufPrint(ip[0..], "{s}", .{endpoint.address});
+        std.debug.print("IP: {s}\n", .{conn.ip});
 
-        std.debug.print("New Client @ {s}\n", .{ip});
+        var ip_buf: [15]u8 = [_]u8{0} ** 15;
+        var ip_size : usize = 0;
+        while(ip_size < 15 and conn.ip[ip_size] != 0) : (ip_size += 1) {
+            ip_buf[ip_size] = conn.ip[ip_size];
+        }
 
         const client = try allocator.create(Client);
         client.* = Client{
-            .conn = conn,
+            .conn = conn.fd,
             .allocator = &allocator,
             .is_connected = true,
             .handle_frame = async client.handle(),
@@ -498,7 +490,7 @@ pub fn run() !void {
             .y = 0,
             .z = 0,
             .id = @bitCast(u8, id),
-            .ip = ip
+            .ip = ip_buf
         };
         client_list[@intCast(usize, @bitCast(u8, id))] = client;
     }
@@ -536,7 +528,6 @@ pub fn deinit() void {
     }
 
     users.deinit();
-    socket.close();
-    network.deinit();
     world.deinit();
+    network.stop_server_sock();
 }
