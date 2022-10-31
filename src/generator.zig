@@ -439,7 +439,7 @@ fn create_mushrooms() void {
 
 }
 
-pub fn growTree(x: u32, y: u32, z: u32, h: u32) void {
+pub fn growTree(x: u32, y: u32, z: u32, h: u32) bool {
     if(x > 2 and z > 2 and y > 0 and y < 50 and x < 254 and z < 254){
     if(isSpaceForTree(x, y, z)){
     const max = y + h;
@@ -517,8 +517,11 @@ pub fn growTree(x: u32, y: u32, z: u32, h: u32) void {
             world.worldData[world.getIdx(x, m, z)] = 17;
         }
     }
+    return true;
     }
     }
+
+    return false;
 }
 
 fn isSpaceForTree(x: u32, y: u32, z: u32) bool {
@@ -567,7 +570,7 @@ fn create_tree() void {
 
                 var th = 4 + @mod(rnd.random().int(usize), 3);
 
-                growTree(@intCast(u32, tx), @intCast(u32, ty), @intCast(u32, tz), @intCast(u32, th)); 
+                _ = growTree(@intCast(u32, tx), @intCast(u32, ty), @intCast(u32, tz), @intCast(u32, th)); 
             }
         }
     }

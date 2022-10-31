@@ -438,7 +438,7 @@ pub fn run() !void {
         // Sleep 50ms (20 TPS)
         std.time.sleep(50 * 1000 * 1000);
 
-        world.update();
+        try world.update();
         ticks_alive += 1;
 
         // PING ALL CLIENTS

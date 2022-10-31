@@ -1,6 +1,8 @@
 const std = @import("std");
-const generator = @import("generator.zig");
 const fs = std.fs;
+const broadcaster = @import("broadcaster.zig");
+const generator = @import("generator.zig");
+const protocol = @import("protocol.zig");
 const zlib = @cImport({
     @cInclude("zlib.h");
 });
@@ -21,19 +23,19 @@ pub fn init(allocator: *std.mem.Allocator) !void {
 
     @memset(worldData[0..], 0, worldData.len);
 
-    //var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
-    //if (file) {
-    //    var f2 = file catch unreachable;
-    //    f2.close();
-    //    load();
-    //} else |err| {
+    var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
+    if (file) {
+        var f2 = file catch unreachable;
+        f2.close();
+        load();
+    } else |err| {
         //We have an error, so generate world
         generator.generate(seed);
-        // std.debug.print("Error: {s}\n", .{@errorName(err)});
-        // std.debug.print("Couldn't load save, generating world.\n", .{});
-    //}
+        std.debug.print("Error: {s}\n", .{@errorName(err)});
+        std.debug.print("Couldn't load save, generating world.\n", .{});
+    }
 
-    //save("save.ccc");
+    save("save.ccc");
 }
 
 pub fn getIdx(x: u32, y: u32, z: u32) usize {
@@ -43,7 +45,7 @@ pub fn getIdx(x: u32, y: u32, z: u32) usize {
     return 0;
 }
 
-fn rtick() void {
+fn rtick() !void {
     var x = rnd.random().int(u8);
     var y = rnd.random().int(u8) % 64;
     var z = rnd.random().int(u8);
@@ -52,53 +54,73 @@ fn rtick() void {
     var blk = worldData[idx];
 
     if(blk == 6) {
+        worldData[idx] = 0;
         //Sapling
-        std.debug.print("TODO: Sapling!\n", .{});
+        if(generator.growTree(x, y, z, rnd.random().int(u8) % 3 + 4)) {
+            var i : u32 = 0;
+            while(i < 6) : (i += 1) {
+                var cx = x - 2;
+                while(cx <= x + 2) : (cx += 1) {
+                    var cz = z - 2;
+                    while(cz <= z + 2) : (cz += 1) {
+                        var idx2 = getIdx(cx, y + i, cz);
+                        var blk2 = worldData[idx2];
+        
+                        try set_block(cx, @intCast(u16, y + i), cz, blk2);
+                    }
+                }
+            }
+        } else {
+            worldData[idx] = 6;
+        }
+
         return;
     }
 
     var is_dark : bool = false;
 
-    if(y + 1 >= 64)
-        return;
+    var test_y: u32 = 63;
+    while(test_y > y) : (test_y -= 1) {
+        var blk2 = worldData[getIdx(x, test_y, z)];
 
-    var blk2 = worldData[getIdx(x, y + 1, z)];
-    if(blk2 == 0 or blk2 == 6 or blk2 == 18 or blk2 == 20 or blk2 == 37 or blk2 == 38 or blk2 == 39 or blk2 == 40) {
-        is_dark = true;
+        if(!(blk2 == 0 or blk2 == 6 or blk2 == 18 or blk2 == 20 or blk2 == 37 or blk2 == 38 or blk2 == 39 or blk2 == 40)) {
+            is_dark = true;
+            break;
+        }
     }
 
     if(blk == 3 and !is_dark) {
-        // set
+        try set_block(x, y, z, 2);
         return;
     }
     
     if(blk == 2 and is_dark) {
-        // set
+        try set_block(x, y, z, 3);
         return;
     }
 
     if(blk == 37 or blk == 38) {
         if (is_dark) {
-            // set
+            try set_block(x, y, z, 0);
         }
         return;
     }
 
     if(blk == 39 or blk == 40) {
         if (!is_dark) {
-            // set
+            try set_block(x, y, z, 0);
         }
         return;
     }
 }
 
-pub fn update() void {
+pub fn update() !void {
     //TODO: Update the world with UpdateList
 
     if(tick_count % 5 == 0) {
         var i : usize = 0;
         while(i < 256 * 4) : (i += 1) {
-            rtick();
+            try rtick();
         }
     }
 
@@ -135,6 +157,15 @@ pub fn load() void {
 
     _ = zlib.gzread(save_file, worldData[0..], 256 * 64 * 256);
     _ = zlib.gzclose(save_file);
+}
+
+pub fn set_block(x: u16, y: u16, z: u16, blk: u8) !void {
+    var idx = getIdx(x, y, z);
+    worldData[idx] = blk;
+
+    var buf = try protocol.create_packet(alloc, protocol.Packet.SetBlock);
+    try protocol.make_set_block(buf, x, y, z, worldData[idx]);
+    broadcaster.request_broadcast(buf, 0);
 }
 
 pub fn save(name: []const u8) void {
