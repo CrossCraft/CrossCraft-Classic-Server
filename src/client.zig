@@ -461,12 +461,30 @@ fn process(self: *Self) !void {
                 world.worldData[idx] = 0;
             } else {
                 //Create
-                world.worldData[idx] = btype;
+                if(btype == 37 or btype == 38) {
+                    if(y > 0) {
+                        var idx2 = world.getIdx(x, y - 1, z);
+                        var blk2 = world.worldData[idx2];
+                        if(blk2 == 2) {
+                            world.worldData[idx] = btype;
+                        }
+                    }
+                } else if (btype == 39 or btype == 40) {
+                    if(y > 0) {
+                        var idx2 = world.getIdx(x, y - 1, z);
+                        var blk2 = world.worldData[idx2];
+                        if(blk2 == 1 or blk2 == 3) {
+                            world.worldData[idx] = btype;
+                        }
+                    }
+                } else {
+                    world.worldData[idx] = btype;
+                }
             }
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.SetBlock);
             try protocol.make_set_block(buf, x, y, z, world.worldData[idx]);
-            broadcaster.request_broadcast(buf, self.id);
+            broadcaster.request_broadcast(buf, 0);
         },
         PacketType.PositionAndOrientation => {
             var fbstream = std.io.fixedBufferStream(self.packet_buffer[2..]);

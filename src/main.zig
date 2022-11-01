@@ -6,6 +6,7 @@ const network = @import("network");
 const server = @import("server.zig");
 
 /// ASYNC IO
+/// TODO: Re-evaluate thread models
 /// Not supported yet in v0.10.0
 /// Requires -fstage1
 pub const io_mode = .evented;
