@@ -538,7 +538,7 @@ pub fn handle(self: *Self) !void {
         std.time.sleep(50 * 1000 * 1000);
         try self.receive();
         
-        while(self.has_packet){
+        while(self.has_packet and self.is_connected){
             try self.process();
             try self.receive();
         }
