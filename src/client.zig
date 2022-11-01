@@ -308,6 +308,9 @@ fn send_init(self: *Self) !void {
     self.z = 128 * 32;
     
     random_spawn(self);
+    self.x += 16;
+    self.z += 16;
+    self.y += 64;
 
     // Send Level Initialization
     var buf = try protocol.create_packet(self.allocator, protocol.Packet.LevelInitialize);
@@ -484,6 +487,7 @@ fn process(self: *Self) !void {
 
             var buf = try protocol.create_packet(self.allocator, protocol.Packet.SetBlock);
             try protocol.make_set_block(buf, x, y, z, world.worldData[idx]);
+            world.update_location(x, y, z);
             broadcaster.request_broadcast(buf, 0);
         },
         PacketType.PositionAndOrientation => {

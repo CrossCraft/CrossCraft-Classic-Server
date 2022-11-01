@@ -7,11 +7,28 @@ const zlib = @cImport({
     @cInclude("zlib.h");
 });
 
+const Location = struct {
+    x: u32,
+    y: u32,
+    z: u32
+};
+
+const Update = struct {
+    loc: Location,
+    blk: u8
+};
+
 var alloc: *std.mem.Allocator = undefined;
 pub const size: usize = 256 * 64 * 256;
 pub var worldData: [size]u8 = undefined;
 var tick_count: usize = 0;
 var seed : u32 = 0;
+
+var update_list: [1024]Update = undefined;
+var update_count: usize = 0;
+
+var update2_list: [1024]Update = undefined;
+var update2_count: usize = 0;
 
 const RndGen = std.rand.DefaultPrng;
 var rnd : RndGen = undefined;
@@ -114,12 +131,119 @@ fn rtick() !void {
     }
 }
 
-pub fn update() !void {
-    //TODO: Update the world with UpdateList
+fn add_update(upd: Update) void {
+    if(update_count + 1 < 1024) {
+        update_list[update_count] = upd;
+        update_count += 1;
+    }
+}
+fn add_update2(upd: Update) void {
+    if(update2_count + 1 < 1024) {
+        update2_list[update_count] = upd;
+        update2_count += 1;
+    }
+}
 
-    if(tick_count % 5 == 0) {
+pub fn update_location(x: u32, y: u32, z: u32) void {
+    if(x < 1 or y < 1 or z < 1 or x > 254 or z > 254 or y > 62) 
+        return;
+
+    var idx = getIdx(x, y, z);
+    var blk = worldData[idx];
+
+    add_update(Update{.loc = Location{.x = x - 1, .y = y, .z = z}, .blk = blk});
+    add_update(Update{.loc = Location{.x = x + 1, .y = y, .z = z}, .blk = blk});
+    add_update(Update{.loc = Location{.x = x, .y = y - 1, .z = z}, .blk = blk});
+    add_update(Update{.loc = Location{.x = x, .y = y, .z = z - 1}, .blk = blk});
+    add_update(Update{.loc = Location{.x = x, .y = y, .z = z + 1}, .blk = blk});
+    add_update(Update{.loc = Location{.x = x, .y = y, .z = z}, .blk = blk});
+    
+    if(blk < 8 and blk > 10) {
+        add_update(Update{.loc = Location{.x = x, .y = y + 1, .z = z}, .blk = blk});
+    }
+}
+
+pub fn update_location2(x: u32, y: u32, z: u32) void {
+    if(x < 1 or y < 1 or z < 1 or x > 254 or z > 254 or y > 62) 
+        return;
+
+    var idx = getIdx(x, y, z);
+    var blk = worldData[idx];
+
+    add_update2(Update{.loc = Location{.x = x - 1, .y = y, .z = z}, .blk = blk});
+    add_update2(Update{.loc = Location{.x = x + 1, .y = y, .z = z}, .blk = blk});
+    add_update2(Update{.loc = Location{.x = x, .y = y - 1, .z = z}, .blk = blk});
+    add_update2(Update{.loc = Location{.x = x, .y = y, .z = z - 1}, .blk = blk});
+    add_update2(Update{.loc = Location{.x = x, .y = y, .z = z + 1}, .blk = blk});
+    add_update2(Update{.loc = Location{.x = x, .y = y, .z = z}, .blk = blk});
+    
+    if(blk < 8 and blk > 10) {
+        add_update2(Update{.loc = Location{.x = x, .y = y + 1, .z = z}, .blk = blk});
+    }
+}
+
+fn check_liquid_fill(x: u32, y: u32, z: u32, fill_blk: u8) !void {
+    if(x < 1 or y < 1 or z < 1 or x > 254 or z > 254 or y > 62) 
+        return;
+        
+    var check_blk = worldData[getIdx(x, y, z)];
+    if(check_blk == 0) {
+        try set_block(@intCast(u16, x), @intCast(u16, y), @intCast(u16, z), fill_blk);
+        update_location2(x, y, z);
+    }
+}
+
+fn update_world() !void {
+    var i : usize = 0;
+    while(i < update_count) : (i += 1) {
+        var upd = update_list[i];
+
+        var curr_blk = worldData[getIdx(upd.loc.x, upd.loc.y, upd.loc.z)];
+
+        if(curr_blk >= 8 and curr_blk <= 10) {
+            if(upd.loc.x < 1 or upd.loc.y < 1 or upd.loc.z < 1 or upd.loc.x > 254 or upd.loc.z > 254 or upd.loc.y > 62) 
+                continue;
+
+            //Fill
+            try check_liquid_fill(upd.loc.x - 1, upd.loc.y, upd.loc.z, curr_blk);
+            try check_liquid_fill(upd.loc.x + 1, upd.loc.y, upd.loc.z, curr_blk);
+            try check_liquid_fill(upd.loc.x, upd.loc.y - 1, upd.loc.z, curr_blk);
+            try check_liquid_fill(upd.loc.x, upd.loc.y, upd.loc.z - 1, curr_blk);
+            try check_liquid_fill(upd.loc.x, upd.loc.y, upd.loc.z + 1, curr_blk);
+        }
+
+        if(curr_blk >= 37 and curr_blk <= 40 or curr_blk == 6) {
+            var blk_bel = worldData[getIdx(upd.loc.x, upd.loc.y - 1, upd.loc.z)];
+            if(blk_bel == 0 or blk_bel == 8 or blk_bel == 9 or blk_bel == 10 or blk_bel == 11) {
+                try set_block(@intCast(u16, upd.loc.x), @intCast(u16, upd.loc.y), @intCast(u16, upd.loc.z), 0);
+            }
+        }
+
+        if(curr_blk == 12 or curr_blk == 13) {
+            var blk_bel = worldData[getIdx(upd.loc.x, upd.loc.y - 1, upd.loc.z)];
+            if(blk_bel == 0 or blk_bel == 8 or blk_bel == 9 or blk_bel == 10 or blk_bel == 11) {
+                try set_block(@intCast(u16, upd.loc.x), @intCast(u16, upd.loc.y - 1), @intCast(u16, upd.loc.z), curr_blk);
+                try set_block(@intCast(u16, upd.loc.x), @intCast(u16, upd.loc.y), @intCast(u16, upd.loc.z), 0);
+                upd.blk = 0;
+                update_location(upd.loc.x, upd.loc.y, upd.loc.z);
+            }
+        } 
+    }
+
+    i = 0;
+    while(i < update2_count) : (i += 1) {
+        update_list[i] = update2_list[i];
+    }
+    update_count = update2_count;
+    update2_count = 0;
+}
+
+pub fn update() !void {
+
+    if(tick_count % 10 == 0) {
+        try update_world();
         var i : usize = 0;
-        while(i < 256 * 4) : (i += 1) {
+        while(i < 256 * 4 * 40) : (i += 1) {
             try rtick();
         }
     }
