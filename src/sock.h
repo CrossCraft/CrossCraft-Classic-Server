@@ -16,4 +16,7 @@ char peek_recv(const int fd);
 int full_recv(const int fd, char* buf, const unsigned int length);
 int conn_send(const int fd, const char* buffer, const unsigned int length);
 
+int start_heartbeat();
+void stop_heartbeat();
+
 #endif

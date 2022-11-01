@@ -73,23 +73,6 @@ fn get_name(packetID: u8) []const u8 {
     };
 }
 
-fn peekID(self: *Self) i8 {
-    var id : i8 = -1;
-    var amt = self.conn.peek(std.mem.asBytes(&id));
-
-    if(amt) {
-        var a = amt catch unreachable;
-        if(a == 1)
-            return id;
-    } else |err| {
-        switch(err) {
-            error.WouldBlock => return -1,
-            else => {self.is_connected = false; return -1;},
-        }
-    }
-
-    return id;
-}
 /// Receive a packet
 fn receive(self: *Self) !void {
     if (self.is_connected and !self.has_packet) {        

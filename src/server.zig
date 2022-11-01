@@ -41,6 +41,8 @@ pub fn init() !void {
     if(network.start_server_sock() < 0)
         return error.InitializeFail;
 
+    _ = network.start_heartbeat();  
+
     std.debug.print("Listening for connections...\n", .{});
 }
 
