@@ -12,7 +12,7 @@ typedef struct {
 Connection accept_new_conn();
 void close_conn(int fd);
 
-char peek_recv(const int fd);
+signed char peek_recv(const int fd);
 int full_recv(const int fd, char* buf, const unsigned int length);
 int conn_send(const int fd, const char* buffer, const unsigned int length);
 

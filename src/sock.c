@@ -144,14 +144,11 @@ Connection accept_new_conn() {
         .tv_usec = 0,
     };
 
-    if(setsockopt(conn, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv)) < 0)
-        perror("setsockopt()");
-
-    if(setsockopt(conn, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv)) < 0)
-        perror("setsockopt()");
-    
     int flag = 1;
     setsockopt(conn, IPPROTO_TCP, TCP_NODELAY, (char *)&flag, sizeof(int));
+
+    int flags = fcntl(conn, F_GETFL, 0);
+    fcntl(conn, F_SETFL, (flags | O_NONBLOCK));
 
     return connection;
 }
@@ -160,8 +157,8 @@ void close_conn(int fd) {
     close(fd);
 }
 
-char peek_recv(const int fd) {
-    char r = 0;
+signed char peek_recv(const int fd) {
+    signed char r = 0;
 
     if(recv(fd, &r, 1, MSG_PEEK) < 0) {
         if(errno == EAGAIN || errno == EWOULDBLOCK) {
@@ -177,25 +174,15 @@ char peek_recv(const int fd) {
 int conn_send(const int fd, const char* buffer, const unsigned int length) {
     ssize_t total_sent = 0;
 
-    int cnt = 0;
-    while(total_sent < length && cnt < 15) {
-        ssize_t result = send(fd, buffer, length, MSG_NOSIGNAL | MSG_DONTWAIT);
+    while(total_sent < length) {
+        ssize_t result = send(fd, buffer, length, MSG_NOSIGNAL);
 
         if(result < 0) {
-            if(errno == EAGAIN || errno == EWOULDBLOCK) {
-                cnt++;
-                usleep(1000);
-                continue;
-            }
             perror("send() failed");
             return -1;
         }
         
         total_sent += result;
-    }
-
-    if(cnt >= 15){
-        return -1;
     }
 
     return total_sent;
@@ -209,9 +196,6 @@ int full_recv(const int fd, char* buf, const unsigned int length) {
         ssize_t result = recv(fd, buf + total_recv, length - total_recv, 0);
 
         if(result < 0) {
-            if(errno == EAGAIN || errno == EWOULDBLOCK)
-                continue;
-            
             perror("recv() failed");
             return -1;
         }

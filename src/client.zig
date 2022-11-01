@@ -37,6 +37,7 @@ has_packet: bool = false,
 is_ready: bool = false,
 /// Async Frame Handler
 handle_frame: @Frame(Self.handle),
+is_alive: bool = true,
 
 const RndGen = std.rand.DefaultPrng;
 var rnd : RndGen = RndGen.init(0);
@@ -138,7 +139,7 @@ pub fn send(self: *Self, buf: []u8) void {
     var res = network.conn_send(self.conn, buf.ptr, @intCast(c_uint, buf.len));
 
     if(res < 0) {
-        self.is_connected = false;
+        self.deinit();
     }
 }
 
@@ -356,6 +357,8 @@ pub fn disconnect(self: *Self, reason: []const u8) !void {
 
 /// Process
 fn process(self: *Self) !void {
+    self.has_packet = false;
+
     if (!self.is_connected)
         return;
 
@@ -524,8 +527,6 @@ fn process(self: *Self) !void {
             broadcaster.request_broadcast(buf, 0);
         },
     }
-
-    self.has_packet = false;
 }
 
 /// Handler thread
@@ -538,13 +539,16 @@ pub fn handle(self: *Self) !void {
         std.time.sleep(50 * 1000 * 1000);
         try self.receive();
         
-        while(self.has_packet and self.is_connected){
+        var i : usize = 0;
+        while(self.has_packet and self.is_connected and i < 10){
             try self.process();
             try self.receive();
+            i += 1;
         }
     }
 
     std.debug.print("Client connection closed!\n", .{});
+    self.is_alive = false;
 }
 
 /// Deinits the client

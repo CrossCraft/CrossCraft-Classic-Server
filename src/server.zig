@@ -127,7 +127,7 @@ fn gc_dead_clients() !void {
 
     while (i < 128) : (i += 1) {
         if (client_list[i] != null) {
-            if (!client_list[i].?.is_connected) {
+            if (!client_list[i].?.is_connected and !client_list[i].?.is_alive) {
                 var client = client_list[i].?;
                 try broadcast_client_kill(client);
 
@@ -444,7 +444,7 @@ pub fn run() !void {
         ticks_alive += 1;
 
         // PING ALL CLIENTS
-        if (ticks_alive % 100 == 0) {
+        if (ticks_alive % 20 == 0) {
             try ping_all();
 
             // Garbage Collect Dead Clients
