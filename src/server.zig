@@ -481,7 +481,6 @@ pub fn run() !void {
             .conn = conn.fd,
             .allocator = &allocator,
             .is_connected = true,
-            .handle_frame = async client.handle(),
             .packet_buffer = undefined,
             .username = undefined,
             .is_loaded = false,
@@ -492,7 +491,8 @@ pub fn run() !void {
             .y = 0,
             .z = 0,
             .id = @bitCast(u8, id),
-            .ip = ip_buf
+            .ip = ip_buf,
+            .handle_frame = async client.handle(),
         };
         client_list[@intCast(usize, @bitCast(u8, id))] = client;
     }
