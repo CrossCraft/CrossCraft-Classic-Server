@@ -11,21 +11,14 @@ pub fn noise(x: f64, y: f64, z: f64) f64 {
     const v = fade(y_float);
     const w = fade(z_float);
 
-    const a  = permutation[x_int]   + y_int;
-    const aa = permutation[a]       + z_int;
-    const ab = permutation[a+1]     + z_int;
-    const b  = permutation[x_int+1] + y_int;
-    const ba = permutation[b]       + z_int;
-    const bb = permutation[b+1]     + z_int;
+    const a = permutation[x_int] + y_int;
+    const aa = permutation[a] + z_int;
+    const ab = permutation[a + 1] + z_int;
+    const b = permutation[x_int + 1] + y_int;
+    const ba = permutation[b] + z_int;
+    const bb = permutation[b + 1] + z_int;
 
-    return lerp(w, lerp(v, lerp(u, grad(permutation[aa], x_float, y_float, z_float),
-        grad(permutation[ba], x_float-1, y_float, z_float)),
-        lerp(u, grad(permutation[ab], x_float, y_float-1, z_float),
-            grad(permutation[bb], x_float-1, y_float-1, z_float))),
-        lerp(v, lerp(u, grad(permutation[aa+1], x_float, y_float, z_float-1),
-            grad(permutation[ba+1], x_float-1, y_float, z_float-1)),
-                lerp(u, grad(permutation[ab+1], x_float, y_float-1, z_float-1),
-                     grad(permutation[bb+1], x_float-1, y_float-1, z_float-1))));
+    return lerp(w, lerp(v, lerp(u, grad(permutation[aa], x_float, y_float, z_float), grad(permutation[ba], x_float - 1, y_float, z_float)), lerp(u, grad(permutation[ab], x_float, y_float - 1, z_float), grad(permutation[bb], x_float - 1, y_float - 1, z_float))), lerp(v, lerp(u, grad(permutation[aa + 1], x_float, y_float, z_float - 1), grad(permutation[ba + 1], x_float - 1, y_float, z_float - 1)), lerp(u, grad(permutation[ab + 1], x_float, y_float - 1, z_float - 1), grad(permutation[bb + 1], x_float - 1, y_float - 1, z_float - 1))));
 }
 
 pub fn pnoise(x: f64, y: f64, seed: u32) f64 {
@@ -33,12 +26,12 @@ pub fn pnoise(x: f64, y: f64, seed: u32) f64 {
 }
 
 pub fn onoise(octaves: usize, x: f64, y: f64, seed: u32) f64 {
-    var sum : f64 = 0;
-    var amp : f64 = 1;
-    var freq : f64 = 1.3;
+    var sum: f64 = 0;
+    var amp: f64 = 1;
+    var freq: f64 = 1.3;
 
-    var i : usize = 0;
-    while(i < octaves) : (i += 1) {
+    var i: usize = 0;
+    while (i < octaves) : (i += 1) {
         sum += pnoise(x * freq, y * freq, seed) * amp;
 
         amp *= 2;
@@ -57,21 +50,44 @@ fn fade(t: f64) f64 {
 
 export fn grad(h: usize, x: f64, y: f64, z: f64) f64 {
     switch (h & 15) {
-        0, 12 => { return  x + y; },
-        1, 14 => { return  y - x; },
-        2     => { return  x - y; },
-        3     => { return -x - y; },
-        4     => { return  x + z; },
-        5     => { return  z - x; },
-        6     => { return  x - z; },
-        7     => { return -x - z; },
-        8     => { return  y + z; },
-        9, 13 => { return  z - y; },
-        10    => { return  y - z; },
-        else  => { return -y - z; }, // 11, 16
+        0, 12 => {
+            return x + y;
+        },
+        1, 14 => {
+            return y - x;
+        },
+        2 => {
+            return x - y;
+        },
+        3 => {
+            return -x - y;
+        },
+        4 => {
+            return x + z;
+        },
+        5 => {
+            return z - x;
+        },
+        6 => {
+            return x - z;
+        },
+        7 => {
+            return -x - z;
+        },
+        8 => {
+            return y + z;
+        },
+        9, 13 => {
+            return z - y;
+        },
+        10 => {
+            return y - z;
+        },
+        else => {
+            return -y - z;
+        }, // 11, 16
     }
 }
-
 
 const permutation = [_]usize{
     151, 160, 137, 91,  90,  15,  131, 13,  201, 95,  96,  53,  194, 233, 7,   225,

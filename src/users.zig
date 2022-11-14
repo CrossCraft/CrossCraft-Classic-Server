@@ -108,10 +108,10 @@ pub fn deop_user(name: []const u8) !bool {
 }
 
 pub fn save_users() !void {
-    var file = try fs.cwd().openFile("users.dat", fs.File.OpenFlags{.mode = .read_write, .intended_io_mode = .blocking, .lock = .Exclusive});
+    var file = try fs.cwd().openFile("users.dat", fs.File.OpenFlags{ .mode = .read_write, .intended_io_mode = .blocking, .lock = .Exclusive });
 
     var writer = file.writer();
-    for(array.items) |*item| {
+    for (array.items) |*item| {
         try writer.writeAll(std.mem.asBytes(item));
     }
 
@@ -131,7 +131,7 @@ pub fn load_users() !void {
 
             if (size) {
                 var asize = size catch unreachable;
-                if(asize > 0){
+                if (asize > 0) {
                     try array.append(user);
                 } else {
                     break;
@@ -144,7 +144,7 @@ pub fn load_users() !void {
         f2.close();
     } else |err| {
         std.debug.print("Error: {s}\n", .{@errorName(err)});
-        var f2 = try fs.cwd().createFile("users.dat", fs.File.CreateFlags{.truncate = true});
+        var f2 = try fs.cwd().createFile("users.dat", fs.File.CreateFlags{ .truncate = true });
         f2.close();
     }
 }

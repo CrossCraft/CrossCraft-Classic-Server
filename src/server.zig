@@ -10,7 +10,7 @@ const broadcaster = @import("broadcaster.zig");
 const logger = @import("logger.zig");
 
 var allocator: std.mem.Allocator = undefined;
-var gpa: std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}) = undefined;
+var gpa: std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true }) = undefined;
 
 /// Server Socket
 var ticks_alive: usize = 0;
@@ -21,7 +21,7 @@ var client_list: [128]?*Client = undefined;
 /// Initialize Server
 pub fn init() !void {
     // Setup Fixed Buffer Allocator
-    gpa = std.heap.GeneralPurposeAllocator(.{.enable_memory_limit = true}){};
+    gpa = std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true }){};
     gpa.backing_allocator = std.heap.page_allocator;
     allocator = gpa.allocator();
 
@@ -38,10 +38,10 @@ pub fn init() !void {
     try users.init(allocator);
 
     // Create brand new socket handle
-    if(network.start_server_sock() < 0)
+    if (network.start_server_sock() < 0)
         return error.InitializeFail;
 
-    _ = network.start_heartbeat();  
+    _ = network.start_heartbeat();
 
     std.debug.print("Listening for connections...\n", .{});
 }
@@ -59,7 +59,7 @@ fn get_available_ID() i8 {
 }
 
 fn ping_all() !void {
-    var buf : [1]u8 = undefined;
+    var buf: [1]u8 = undefined;
     buf[0] = 0x01;
 
     var i: usize = 1;
@@ -146,14 +146,14 @@ fn gc_dead_clients() !void {
 }
 
 fn send_message_to_client(msg: []const u8, sender_id: u8) !void {
-    if(sender_id == 0){
+    if (sender_id == 0) {
         std.debug.print("{s}\n", .{msg});
     } else {
         var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
         defer allocator.free(buf);
         try protocol.make_message(buf, @bitCast(i8, sender_id), msg);
-        
-        if(client_list[sender_id] != null){
+
+        if (client_list[sender_id] != null) {
             client_list[sender_id].?.send(buf);
         }
     }
@@ -161,10 +161,10 @@ fn send_message_to_client(msg: []const u8, sender_id: u8) !void {
 
 fn get_client(name: []const u8) ?*Client {
     var i: usize = 1;
-    while(i < 128) : (i += 1){
-        if(client_list[i] != null){
+    while (i < 128) : (i += 1) {
+        if (client_list[i] != null) {
             var name2 = std.mem.sliceTo(client_list[i].?.username[0..], 0);
-            if(std.mem.eql(u8, name, name2)){
+            if (std.mem.eql(u8, name, name2)) {
                 return client_list[i];
             }
         }
@@ -176,22 +176,21 @@ fn get_client(name: []const u8) ?*Client {
 /// Parses a given command or text
 /// cmd - The command input
 pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
+    var super: bool = sender_id == 0 or client_list[sender_id].?.is_op != 0;
 
-    var super : bool = sender_id == 0 or client_list[sender_id].?.is_op != 0;
-
-    if(cmd[0] == '/') {
+    if (cmd[0] == '/') {
         //It's a command
         var cmd_first = std.mem.sliceTo(cmd, ' ');
-        if(cmd_first.len == cmd.len){
+        if (cmd_first.len == cmd.len) {
             cmd_first = std.mem.sliceTo(cmd, '\n');
         }
 
-        if(std.mem.eql(u8, "/help", cmd_first)) {
+        if (std.mem.eql(u8, "/help", cmd_first)) {
             try send_message_to_client("&eHelp: ", sender_id);
             try send_message_to_client("&e/msg <user> <message_contents> -- Send message to a user", sender_id);
             try send_message_to_client("&e/list -- List all current players", sender_id);
             try send_message_to_client("&e/tp <x> <y> <z> -- Teleports you to the location if valid", sender_id);
-            if(sender_id == 0 or client_list[sender_id].?.is_op != 0) {
+            if (sender_id == 0 or client_list[sender_id].?.is_op != 0) {
                 try send_message_to_client("&e/kick <user> -- Kicks user from the server", sender_id);
                 try send_message_to_client("&e/ban <user> -- Bans user from the server", sender_id);
                 try send_message_to_client("&e/unban <user> -- Unbans user from the server", sender_id);
@@ -204,44 +203,44 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
         } else if (std.mem.eql(u8, "/list", cmd_first)) {
             try send_message_to_client("&eCurrent Players:", sender_id);
             var i: usize = 1;
-            while(i < 128): (i += 1){
-                if(client_list[i] != null){
+            while (i < 128) : (i += 1) {
+                if (client_list[i] != null) {
                     var buf: [18]u8 = undefined;
                     buf[0] = '&';
                     buf[1] = 'a';
                     var pos: usize = 2;
-                    while(pos < 16 and client_list[i].?.username[pos - 2] != 0) : (pos += 1) {
+                    while (pos < 16 and client_list[i].?.username[pos - 2] != 0) : (pos += 1) {
                         buf[pos] = client_list[i].?.username[pos - 2];
                     }
                     try send_message_to_client(buf[0..pos], sender_id);
                 }
             }
-        } else if(std.mem.eql(u8, "/msg", cmd_first)) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/msg", cmd_first)) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
 
             std.debug.print("MSG {s}\n", .{cmd_second});
 
             var client = get_client(cmd_second);
-            if(client == null){
+            if (client == null) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             std.debug.print("MSG\n", .{});
 
-            var cmd_remain = cmd[cmd_first.len+1+cmd_second.len+1..];
+            var cmd_remain = cmd[cmd_first.len + 1 + cmd_second.len + 1 ..];
             var buf: [256]u8 = undefined;
-            var user = if(sender_id == 0) "Console" else std.mem.sliceTo(client_list[sender_id].?.username[0..], 0);
+            var user = if (sender_id == 0) "Console" else std.mem.sliceTo(client_list[sender_id].?.username[0..], 0);
 
             std.debug.print("User {s}\n", .{user});
 
-            var msg = try std.fmt.bufPrint(buf[0..], "&7[{s}->{s}]: {s}", .{ user, cmd_second, cmd_remain});
+            var msg = try std.fmt.bufPrint(buf[0..], "&7[{s}->{s}]: {s}", .{ user, cmd_second, cmd_remain });
 
             std.debug.print("MSG\n", .{});
 
             try send_message_to_client(msg[0..64], sender_id);
             try send_message_to_client(msg[0..64], client.?.id);
-        } else if(std.mem.eql(u8, "/tp", cmd_first)) {
+        } else if (std.mem.eql(u8, "/tp", cmd_first)) {
             var pos = cmd_first.len + 1;
             var cmd_second = std.mem.sliceTo(cmd[pos..], ' ');
             pos += cmd_second.len + 1;
@@ -263,25 +262,24 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             var buf = try protocol.create_packet(&allocator, protocol.Packet.PlayerTeleport);
             defer allocator.free(buf);
             try protocol.make_teleport_player(buf, 255, client.x, client.y, client.z, client.yaw, client.pitch);
-            if(sender_id != 0){
+            if (sender_id != 0) {
                 client.send(buf);
             }
-        } else if(std.mem.eql(u8, "/kick", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/kick", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var client = get_client(cmd_second);
-            if(client == null){
+            if (client == null) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             try client.?.disconnect("You were kicked!");
-
-        } else if(std.mem.eql(u8, "/stop", cmd_first) and super) {
-            var i : usize = 1;
-            while(i < 128) : (i += 1) {
-                if(client_list[i] != null){
+        } else if (std.mem.eql(u8, "/stop", cmd_first) and super) {
+            var i: usize = 1;
+            while (i < 128) : (i += 1) {
+                if (client_list[i] != null) {
                     try client_list[i].?.disconnect("Server stopping!");
                 }
             }
@@ -289,109 +287,109 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             deinit();
             _ = gpa.detectLeaks();
             std.os.exit(0);
-        } else if(std.mem.eql(u8, "/ban", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/ban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var client = get_client(cmd_second);
-            if(client == null){
+            if (client == null) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             var user = try users.ban_user(client.?.username[0..]);
-            if(!user){
+            if (!user) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             try client.?.disconnect("You were banned!");
-        } else if(std.mem.eql(u8, "/unban", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/unban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var buf: [16]u8 = [_]u8{0} ** 16;
             var pos: usize = 0;
-            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+            while (pos < 16 and pos < cmd_second.len) : (pos += 1) {
                 buf[pos] = cmd_second[pos];
             }
 
             var user = try users.unban_user(buf[0..]);
-            if(!user){
+            if (!user) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
-        } else if(std.mem.eql(u8, "/ip-ban", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/ip-ban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var client = get_client(cmd_second);
-            if(client == null){
+            if (client == null) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             var user = try users.ip_ban_user(client.?.username[0..]);
-            if(!user){
+            if (!user) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             try client.?.disconnect("You were banned!");
-        } else if(std.mem.eql(u8, "/ip-unban", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/ip-unban", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var buf: [16]u8 = [_]u8{0} ** 16;
             var pos: usize = 0;
-            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+            while (pos < 16 and pos < cmd_second.len) : (pos += 1) {
                 buf[pos] = cmd_second[pos];
             }
 
             var user = try users.ip_unban_user(buf[0..]);
-            if(!user){
+            if (!user) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
-        } else if(std.mem.eql(u8, "/op", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/op", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var buf: [16]u8 = [_]u8{0} ** 16;
             var pos: usize = 0;
-            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+            while (pos < 16 and pos < cmd_second.len) : (pos += 1) {
                 buf[pos] = cmd_second[pos];
             }
 
             var user = try users.op_user(buf[0..]);
-            if(!user){
+            if (!user) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             var client = get_client(cmd_second);
-            if(client != null){
+            if (client != null) {
                 try send_message_to_client("&bYou were opped!", client.?.id);
                 client.?.is_op = 0x64;
             }
-        } else if(std.mem.eql(u8, "/deop", cmd_first) and super) {
-            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len+1..], ' ');
+        } else if (std.mem.eql(u8, "/deop", cmd_first) and super) {
+            var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
             var buf: [16]u8 = [_]u8{0} ** 16;
             var pos: usize = 0;
-            while(pos < 16 and pos < cmd_second.len) : (pos += 1){
+            while (pos < 16 and pos < cmd_second.len) : (pos += 1) {
                 buf[pos] = cmd_second[pos];
             }
 
             var user = try users.op_user(buf[0..]);
-            if(!user){
+            if (!user) {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
 
             var client = get_client(cmd_second);
-            if(client != null){
+            if (client != null) {
                 try send_message_to_client("&7You were deopped!", client.?.id);
                 client.?.is_op = 0x00;
             }
@@ -399,15 +397,14 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             std.debug.print("Error: Unknown command {s}\n", .{cmd_first});
             try send_message_to_client("&cUnknown command!", sender_id);
         }
-
     } else {
         //Just a message
         var pos: usize = 13;
         var msg: [64]u8 = [_]u8{0x20} ** 64;
 
         std.mem.copy(u8, msg[0..], "&4[Console]: ");
-        
-        while(pos < 64 and pos - 13 < cmd.len and (cmd[pos - 13] != '\n' and cmd[pos - 13] != '\r' and cmd[pos - 13] != 0)) : (pos += 1){
+
+        while (pos < 64 and pos - 13 < cmd.len and (cmd[pos - 13] != '\n' and cmd[pos - 13] != '\r' and cmd[pos - 13] != 0)) : (pos += 1) {
             msg[pos] = cmd[pos - 13];
         }
 
@@ -422,12 +419,12 @@ fn command_loop() !void {
     var console_in = std.io.getStdIn();
     var console_reader = console_in.reader();
 
-    while(true) {
+    while (true) {
         std.time.sleep(50 * 1000 * 1000);
-        var console_input : [256]u8 = [_]u8{0} ** 256;
+        var console_input: [256]u8 = [_]u8{0} ** 256;
         var cmd = try console_reader.read(console_input[0..]);
 
-        if(cmd > 0)        
+        if (cmd > 0)
             try parse_command(console_input[0..cmd], 0);
     }
 }
@@ -456,8 +453,8 @@ pub fn run() !void {
 
         // Check Client
         var conn = network.accept_new_conn();
-        
-        if(conn.fd < 0)
+
+        if (conn.fd < 0)
             continue;
 
         // New Client Thread
@@ -471,8 +468,8 @@ pub fn run() !void {
         std.debug.print("IP: {s}\n", .{conn.ip});
 
         var ip_buf: [15]u8 = [_]u8{0} ** 15;
-        var ip_size : usize = 0;
-        while(ip_size < 15 and conn.ip[ip_size] != 0) : (ip_size += 1) {
+        var ip_size: usize = 0;
+        while (ip_size < 15 and conn.ip[ip_size] != 0) : (ip_size += 1) {
             ip_buf[ip_size] = conn.ip[ip_size];
         }
 
@@ -503,12 +500,12 @@ pub fn run() !void {
 /// Used for checking for duplicates
 /// name - Name to search for
 pub fn get_user_count(name: []const u8) usize {
-    var count : usize = 0;
+    var count: usize = 0;
 
-    var i : usize = 1;
+    var i: usize = 1;
     while (i < 128) : (i += 1) {
         if (client_list[i] != null) {
-            if(std.mem.eql(u8, client_list[i].?.username[0..], name)){
+            if (std.mem.eql(u8, client_list[i].?.username[0..], name)) {
                 count += 1;
             }
         }

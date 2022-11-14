@@ -40,7 +40,7 @@ handle_frame: @Frame(Self.handle),
 is_alive: bool = true,
 
 const RndGen = std.rand.DefaultPrng;
-var rnd : RndGen = RndGen.init(0);
+var rnd: RndGen = RndGen.init(0);
 
 /// Packet Incoming Types [C->S]
 const PacketType = enum(u8) {
@@ -76,13 +76,13 @@ fn get_name(packetID: u8) []const u8 {
 
 /// Receive a packet
 fn receive(self: *Self) !void {
-    if (self.is_connected and !self.has_packet) {        
+    if (self.is_connected and !self.has_packet) {
         var id = network.peek_recv(self.conn);
 
-        if(id == -2)
+        if (id == -2)
             return;
 
-        if(id == -1) {
+        if (id == -1) {
             self.is_connected = false;
             return;
         }
@@ -93,7 +93,7 @@ fn receive(self: *Self) !void {
             return;
         }
 
-        if(network.full_recv(self.conn, self.packet_buffer[0..packet_size].ptr, @intCast(c_uint, packet_size)) < 0) {
+        if (network.full_recv(self.conn, self.packet_buffer[0..packet_size].ptr, @intCast(c_uint, packet_size)) < 0) {
             self.is_connected = false;
             return;
         }
@@ -107,7 +107,7 @@ fn copyUsername(self: *Self) void {
     var i: usize = 0;
 
     // ZERO out the Username
-    for(self.username) |*c| {
+    for (self.username) |*c| {
         c.* = 0;
     }
 
@@ -129,7 +129,7 @@ pub fn send(self: *Self, buf: []u8) void {
     if (!self.is_connected)
         return;
 
-    if(buf[0] > 0x0f) {
+    if (buf[0] > 0x0f) {
         unreachable;
     }
 
@@ -138,7 +138,7 @@ pub fn send(self: *Self, buf: []u8) void {
 
     var res = network.conn_send(self.conn, buf.ptr, @intCast(c_uint, buf.len));
 
-    if(res < 0) {
+    if (res < 0) {
         self.deinit();
     }
 }
@@ -174,7 +174,7 @@ fn compress_level(compBuf: []u8) !usize {
 
     strm.avail_in = world.size;
     strm.next_in = world.worldData[0..];
-    
+
     ret = zlib.deflate(&strm, zlib.Z_FINISH);
 
     switch (ret) {
@@ -266,16 +266,16 @@ fn join_message(self: *Self) !void {
 
 fn random_spawn(self: *Self) void {
     //Determine a spawn location
-    var attempts : usize = 30;
-    while(attempts > 0) : (attempts -= 1) {
-        var x : u16 = rnd.random().int(u16) % 64 + 96;
-        var z : u16 = rnd.random().int(u16) % 64 + 96;
+    var attempts: usize = 30;
+    while (attempts > 0) : (attempts -= 1) {
+        var x: u16 = rnd.random().int(u16) % 64 + 96;
+        var z: u16 = rnd.random().int(u16) % 64 + 96;
 
-        var y : i16 = 63;
-        while(y >= 0) : (y -= 1) {
+        var y: i16 = 63;
+        while (y >= 0) : (y -= 1) {
             var blk = world.worldData[world.getIdx(x, @bitCast(u16, y), z)];
 
-            if(blk != 0) {
+            if (blk != 0) {
                 self.x = x * 32;
                 self.y = @bitCast(u16, y) * 32;
                 self.z = z * 32;
@@ -290,7 +290,7 @@ fn send_init(self: *Self) !void {
     self.x = 128 * 32;
     self.y = 32 * 32;
     self.z = 128 * 32;
-    
+
     random_spawn(self);
     self.x += 16;
     self.z += 16;
@@ -378,7 +378,7 @@ fn process(self: *Self) !void {
             self.send(buf);
             self.allocator.free(buf);
 
-            if(server.get_user_count(self.username[0..]) != 1){
+            if (server.get_user_count(self.username[0..]) != 1) {
                 std.debug.print("Error: Duplicate client connection!\n", .{});
                 try self.disconnect("&7Already Connected.");
                 return;
@@ -386,48 +386,35 @@ fn process(self: *Self) !void {
 
             // Get user by name
             var user = users.get_user_name(self.username[0..]);
-            if(user == null){
-                var user2 = users.User{
-                    .name = self.username,
-                    .ip = self.ip,
-                    .banned = false,
-                    .ip_banned = false,
-                    .op = false
-                };
+            if (user == null) {
+                var user2 = users.User{ .name = self.username, .ip = self.ip, .banned = false, .ip_banned = false, .op = false };
 
                 try users.add_user(user2);
             } else {
                 // Check banned
-                if(user.?.banned){
+                if (user.?.banned) {
                     try self.disconnect("&4Banned.");
                     return;
                 }
             }
 
             user = users.get_user_ip(self.ip[0..]);
-            if(user == null) {
-                var user2 = users.User{
-                    .name = self.username,
-                    .ip = self.ip,
-                    .banned = false,
-                    .ip_banned = false,
-                    .op = false
-                };
+            if (user == null) {
+                var user2 = users.User{ .name = self.username, .ip = self.ip, .banned = false, .ip_banned = false, .op = false };
 
                 try users.add_user(user2);
             } else {
                 // Check IP banned
-                if(user.?.ip_banned) {
+                if (user.?.ip_banned) {
                     try self.disconnect("&4Banned.");
                     return;
                 }
 
                 // Check OPed
-                if(user.?.op) {
+                if (user.?.op) {
                     self.is_op = 0x64;
                 }
             }
-            
 
             try self.send_init();
             self.is_ready = true;
@@ -450,19 +437,19 @@ fn process(self: *Self) !void {
                 world.worldData[idx] = 0;
             } else {
                 //Create
-                if(btype == 37 or btype == 38) {
-                    if(y > 0) {
+                if (btype == 37 or btype == 38) {
+                    if (y > 0) {
                         var idx2 = world.getIdx(x, y - 1, z);
                         var blk2 = world.worldData[idx2];
-                        if(blk2 == 2) {
+                        if (blk2 == 2) {
                             world.worldData[idx] = btype;
                         }
                     }
                 } else if (btype == 39 or btype == 40) {
-                    if(y > 0) {
+                    if (y > 0) {
                         var idx2 = world.getIdx(x, y - 1, z);
                         var blk2 = world.worldData[idx2];
-                        if(blk2 == 1 or blk2 == 3) {
+                        if (blk2 == 1 or blk2 == 3) {
                             world.worldData[idx] = btype;
                         }
                     }
@@ -497,7 +484,7 @@ fn process(self: *Self) !void {
             var msg: [64]u8 = undefined;
             _ = try reader.readAll(msg[0..]);
 
-            if(msg[0] == '/'){
+            if (msg[0] == '/') {
                 //It's a command
                 try server.parse_command(msg[0..], self.id);
                 self.has_packet = false;
@@ -538,9 +525,9 @@ pub fn handle(self: *Self) !void {
     while (self.is_connected) {
         std.time.sleep(50 * 1000 * 1000);
         try self.receive();
-        
-        var i : usize = 0;
-        while(self.has_packet and self.is_connected and i < 10){
+
+        var i: usize = 0;
+        while (self.has_packet and self.is_connected and i < 10) {
             try self.process();
             try self.receive();
             i += 1;

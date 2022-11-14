@@ -12,7 +12,7 @@ var packet_queue: [512]BroadcastInfo = undefined;
 var packet_count: usize = 0;
 
 pub fn init() void {
-    for(packet_queue) |*b_info| {
+    for (packet_queue) |*b_info| {
         b_info.buf = null;
         b_info.exclude_id = 0;
     }
@@ -26,11 +26,10 @@ pub fn deinit() void {
 /// Request Broadcast
 /// Adds packet to the queue to broadcast to
 pub fn request_broadcast(buf: []u8, exclude_id: u8) void {
-
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
 
-    if(packet_count >= packet_queue.len)
+    if (packet_count >= packet_queue.len)
         return;
 
     packet_queue[packet_count].buf = buf;
@@ -43,11 +42,11 @@ pub fn broadcast_all(alloc: *std.mem.Allocator, client_list: []?*Client) void {
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
 
-    if(packet_count == 0 or packet_count >= 512)
+    if (packet_count == 0 or packet_count >= 512)
         return;
 
-    var c : usize = 0;
-    while(c < packet_count) : (c += 1) {
+    var c: usize = 0;
+    while (c < packet_count) : (c += 1) {
         var b_info = &packet_queue[c];
 
         var i: usize = 1;
@@ -60,12 +59,11 @@ pub fn broadcast_all(alloc: *std.mem.Allocator, client_list: []?*Client) void {
         }
     }
 
-    var i : usize = 0;
-    while(i < packet_count) : (i += 1) {
+    var i: usize = 0;
+    while (i < packet_count) : (i += 1) {
         var b_info = &packet_queue[i];
 
-
-        if(b_info.buf[0] == 0x0D) {
+        if (b_info.buf[0] == 0x0D) {
             logger.log_chat(b_info.buf[1..]) catch unreachable;
         }
 
