@@ -132,6 +132,8 @@ fn gc_dead_clients() !void {
                 try broadcast_client_kill(client);
 
                 client.deinit();
+                client.handle_frame.join();
+                
                 allocator.destroy(client);
                 client_list[i] = null;
 
@@ -431,7 +433,7 @@ fn command_loop() !void {
 
 /// Run Server
 pub fn run() !void {
-    //var frame = async command_loop();
+    var thr = try std.Thread.spawn(.{}, command_loop, .{});
 
     while (true) {
         // Sleep 50ms (20 TPS)
@@ -493,7 +495,7 @@ pub fn run() !void {
         };
         client_list[@intCast(usize, @bitCast(u8, id))] = client;
     }
-    //_ = frame;
+    _ = thr;
 }
 
 /// Gets number of users with a given name
