@@ -32,11 +32,11 @@ y: u16,
 z: u16,
 yaw: u8,
 pitch: u8,
-send_lock: std.event.Lock = std.event.Lock{},
+send_lock: std.Thread.Mutex = std.Thread.Mutex{},
 has_packet: bool = false,
 is_ready: bool = false,
-/// Async Frame Handler
-handle_frame: @Frame(Self.handle),
+/// Thread Handler
+handle_frame: std.Thread,
 is_alive: bool = true,
 
 const RndGen = std.rand.DefaultPrng;
@@ -133,8 +133,8 @@ pub fn send(self: *Self, buf: []u8) void {
         unreachable;
     }
 
-    const hnd = self.send_lock.acquire();
-    defer hnd.release();
+    self.send_lock.lock();
+    defer self.send_lock.unlock();
 
     var res = network.conn_send(self.conn, buf.ptr, @intCast(c_uint, buf.len));
 

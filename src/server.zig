@@ -431,7 +431,7 @@ fn command_loop() !void {
 
 /// Run Server
 pub fn run() !void {
-    var frame = async command_loop();
+    //var frame = async command_loop();
 
     while (true) {
         // Sleep 50ms (20 TPS)
@@ -489,11 +489,11 @@ pub fn run() !void {
             .z = 0,
             .id = @bitCast(u8, id),
             .ip = ip_buf,
-            .handle_frame = async client.handle(),
+            .handle_frame = try std.Thread.spawn(.{}, Client.handle, .{client}),
         };
         client_list[@intCast(usize, @bitCast(u8, id))] = client;
     }
-    _ = frame;
+    //_ = frame;
 }
 
 /// Gets number of users with a given name
