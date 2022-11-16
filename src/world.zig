@@ -250,7 +250,7 @@ pub fn update() !void {
     // Backup every 6 hours
     if (tick_count % 432000 == 0) {
         var tstamp = std.time.timestamp();
-        var fname = std.fmt.allocPrint(alloc.*, "save.ccc.{}", .{tstamp}) catch unreachable;
+        var fname = std.fmt.allocPrintZ(alloc.*, "save.ccc.{}", .{tstamp}) catch unreachable;
         defer alloc.free(fname);
         save(fname);
     }
