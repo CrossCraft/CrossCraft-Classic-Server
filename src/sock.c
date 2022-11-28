@@ -178,6 +178,10 @@ int conn_send(const int fd, const char* buffer, const unsigned int length) {
         ssize_t result = send(fd, buffer, length, MSG_NOSIGNAL);
 
         if(result < 0) {
+            if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                continue;
+            }
+
             perror("send() failed");
             return -1;
         }
