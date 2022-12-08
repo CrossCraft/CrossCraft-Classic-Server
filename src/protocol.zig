@@ -25,7 +25,7 @@ fn get_packet_size(ptype: Packet) usize {
 }
 
 /// Allocates and creates a buffer for a packet to be sent with
-pub fn create_packet(allocator: *std.mem.Allocator, ptype: Packet) ![]u8 {
+pub fn create_packet(allocator: std.mem.Allocator, ptype: Packet) ![]u8 {
     var size = get_packet_size(ptype);
     var buf = try allocator.alloc(u8, size);
 

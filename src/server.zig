@@ -1,13 +1,22 @@
 const std = @import("std");
-const network = @cImport({
-    @cInclude("sock.h");
-});
+const network = @import("network.zig");
 const Client = @import("client.zig");
 const world = @import("world.zig");
 const protocol = @import("protocol.zig");
 const users = @import("users.zig");
 const broadcaster = @import("broadcaster.zig");
 const logger = @import("logger.zig");
+
+pub const Config = struct {
+    name: []const u8 = "[MCGalaxy] Default",
+    port: u16 = 25565,
+    public: bool = false,
+    web: bool = true,
+    version: u8 = 7,
+    max_players: u8 = 128,
+    software: []const u8 = "MCGalaxy 1.9.4.3",
+    salt: []const u8 = "eF9zzX5JpYKzyuVrfjJMhmvUhCNDDthG",
+};
 
 var allocator: std.mem.Allocator = undefined;
 var gpa: std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true }) = undefined;
@@ -19,14 +28,13 @@ var ticks_alive: usize = 0;
 var client_list: [128]?*Client = undefined;
 
 /// Initialize Server
-pub fn init() !void {
+pub fn init(config: Config) !void {
     // Setup Fixed Buffer Allocator
     gpa = std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true }){};
-    gpa.backing_allocator = std.heap.page_allocator;
     allocator = gpa.allocator();
 
     // Init world
-    try world.init(&allocator);
+    try world.init(allocator);
 
     // Init client list
     var i: usize = 0;
@@ -38,24 +46,23 @@ pub fn init() !void {
     try users.init(allocator);
 
     // Create brand new socket handle
-    if (network.start_server_sock() < 0)
+    network.start_server_sock() catch {
         return error.InitializeFail;
+    };
 
-    _ = network.start_heartbeat();
+    try network.start_heartbeat(allocator, config);
 
     std.debug.print("Listening for connections...\n", .{});
 }
 
-/// Gets an ID if available -- returns -1 otherwise
-fn get_available_ID() i8 {
-    var i: usize = 1;
-
-    while (i < 128) : (i += 1) {
-        if (client_list[i] == null)
-            return @intCast(i8, i);
+/// Gets an ID if available
+fn get_available_ID() !u8 {
+    for (client_list[1..]) |c, idx| {
+        if (c == null) {
+            return @intCast(u8, idx + 1);
+        }
     }
-
-    return -1;
+    return error.NoAvailableID;
 }
 
 fn ping_all() !void {
@@ -79,7 +86,7 @@ pub fn new_player_spawn(client: *Client) !void {
         if (client_list[i] != null and client_list[i].?.id != client.id) {
             var client2 = client_list[i].?;
 
-            var buf = try protocol.create_packet(&allocator, protocol.Packet.SpawnPlayer);
+            var buf = try protocol.create_packet(allocator, protocol.Packet.SpawnPlayer);
             try protocol.make_spawn_player(buf, client2.id, client2.username[0..], client2.x, client2.y, client2.z, client2.yaw, client2.pitch);
             client.send(buf);
             allocator.free(buf);
@@ -91,7 +98,7 @@ pub fn new_player_spawn(client: *Client) !void {
 /// Triggered by gc_dead_clients()
 /// client - Client that is being killed
 fn broadcast_client_kill(client: *Client) !void {
-    var buf = try protocol.create_packet(&allocator, protocol.Packet.DespawnPlayer);
+    var buf = try protocol.create_packet(allocator, protocol.Packet.DespawnPlayer);
     protocol.make_despawn_player(buf, client.id);
     broadcaster.request_broadcast(buf, client.id);
 
@@ -115,7 +122,7 @@ fn broadcast_client_kill(client: *Client) !void {
         msg[pos] = msg2[pos - pos_start];
     }
 
-    var buf2 = try protocol.create_packet(&allocator, protocol.Packet.Message);
+    var buf2 = try protocol.create_packet(allocator, protocol.Packet.Message);
     try protocol.make_message(buf2, 0, msg[0..]);
     broadcaster.request_broadcast(buf2, client.id);
 }
@@ -133,7 +140,7 @@ fn gc_dead_clients() !void {
 
                 client.deinit();
                 client.handle_frame.join();
-                
+
                 allocator.destroy(client);
                 client_list[i] = null;
 
@@ -151,7 +158,7 @@ fn send_message_to_client(msg: []const u8, sender_id: u8) !void {
     if (sender_id == 0) {
         std.debug.print("{s}\n", .{msg});
     } else {
-        var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
+        var buf = try protocol.create_packet(allocator, protocol.Packet.Message);
         defer allocator.free(buf);
         try protocol.make_message(buf, @bitCast(i8, sender_id), msg);
 
@@ -261,7 +268,7 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             client.yaw = 0;
             client.pitch = 0;
 
-            var buf = try protocol.create_packet(&allocator, protocol.Packet.PlayerTeleport);
+            var buf = try protocol.create_packet(allocator, protocol.Packet.PlayerTeleport);
             defer allocator.free(buf);
             try protocol.make_teleport_player(buf, 255, client.x, client.y, client.z, client.yaw, client.pitch);
             if (sender_id != 0) {
@@ -410,7 +417,7 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             msg[pos] = cmd[pos - 13];
         }
 
-        var buf = try protocol.create_packet(&allocator, protocol.Packet.Message);
+        var buf = try protocol.create_packet(allocator, protocol.Packet.Message);
         try protocol.make_message(buf, 0, msg[0..]);
         broadcaster.request_broadcast(buf, 0);
     }
@@ -433,8 +440,7 @@ fn command_loop() !void {
 
 /// Run Server
 pub fn run() !void {
-    var thr = try std.Thread.spawn(.{}, command_loop, .{});
-
+    (try std.Thread.spawn(.{}, command_loop, .{})).detach();
     while (true) {
         // Sleep 50ms (20 TPS)
         std.time.sleep(50 * 1000 * 1000);
@@ -451,34 +457,25 @@ pub fn run() !void {
         }
 
         // Broadcast all events
-        broadcaster.broadcast_all(&allocator, client_list[0..]);
+        broadcaster.broadcast_all(allocator, client_list[0..]);
 
         // Check Client
-        var conn = network.accept_new_conn();
-
-        if (conn.fd < 0)
+        var conn = network.accept_new_conn() catch {
             continue;
+        };
 
         // New Client Thread
-        var id: i8 = get_available_ID();
-
-        if (id < 0) {
+        var id: u8 = get_available_ID() catch {
             network.close_conn(conn.fd);
             continue;
-        }
+        };
 
-        std.debug.print("IP: {s}\n", .{conn.ip});
-
-        var ip_buf: [15]u8 = [_]u8{0} ** 15;
-        var ip_size: usize = 0;
-        while (ip_size < 15 and conn.ip[ip_size] != 0) : (ip_size += 1) {
-            ip_buf[ip_size] = conn.ip[ip_size];
-        }
+        std.debug.print("IP: {any}\n", .{conn.ip});
 
         const client = try allocator.create(Client);
         client.* = Client{
             .conn = conn.fd,
-            .allocator = &allocator,
+            .allocator = allocator,
             .is_connected = true,
             .packet_buffer = undefined,
             .username = undefined,
@@ -489,13 +486,12 @@ pub fn run() !void {
             .x = 0,
             .y = 0,
             .z = 0,
-            .id = @bitCast(u8, id),
-            .ip = ip_buf,
+            .id = id,
+            .ip = conn.ip,
             .handle_frame = try std.Thread.spawn(.{}, Client.handle, .{client}),
         };
-        client_list[@intCast(usize, @bitCast(u8, id))] = client;
+        client_list[id] = client;
     }
-    _ = thr;
 }
 
 /// Gets number of users with a given name

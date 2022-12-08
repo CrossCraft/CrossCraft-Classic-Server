@@ -1,7 +1,16 @@
 const std = @import("std");
 const fs = std.fs;
+const net = std.net;
 
-pub const User = struct { name: [16]u8, ip: [15]u8, banned: bool, ip_banned: bool, op: bool };
+const Address = net.Address;
+
+pub const User = struct {
+    name: [16]u8,
+    ip: Address,
+    banned: bool,
+    ip_banned: bool,
+    op: bool,
+};
 
 var array: std.ArrayList(User) = undefined;
 
@@ -25,9 +34,9 @@ pub fn get_user_name(name: []const u8) ?*User {
     return null;
 }
 
-pub fn get_user_ip(ip: []const u8) ?*User {
+pub fn get_user_ip(ip: Address) ?*User {
     for (array.items) |*item| {
-        if (std.mem.eql(u8, item.ip[0..], ip)) {
+        if (item.ip.eql(ip)) {
             return item;
         }
     }
@@ -121,17 +130,15 @@ pub fn save_users() !void {
 pub fn load_users() !void {
     var file = fs.cwd().openFile("users.dat", fs.File.OpenFlags{ .mode = .read_only });
 
-    if (file) {
-        var f2 = file catch unreachable;
-        var reader = f2.reader();
+    if (file) |f| {
+        const reader = f.reader();
 
         while (true) {
             var user: User = undefined;
             var size = reader.read(std.mem.asBytes(&user));
 
-            if (size) {
-                var asize = size catch unreachable;
-                if (asize > 0) {
+            if (size) |s| {
+                if (s > 0) {
                     try array.append(user);
                 } else {
                     break;
@@ -141,7 +148,7 @@ pub fn load_users() !void {
                 break;
             }
         }
-        f2.close();
+        f.close();
     } else |err| {
         std.debug.print("Error: {s}\n", .{@errorName(err)});
         var f2 = try fs.cwd().createFile("users.dat", fs.File.CreateFlags{ .truncate = true });

@@ -38,7 +38,7 @@ pub fn request_broadcast(buf: []u8, exclude_id: u8) void {
 }
 
 /// Broadcast to all in a list
-pub fn broadcast_all(alloc: *std.mem.Allocator, client_list: []?*Client) void {
+pub fn broadcast_all(alloc: std.mem.Allocator, client_list: []?*Client) void {
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
 
