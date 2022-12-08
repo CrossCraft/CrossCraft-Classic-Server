@@ -11,9 +11,9 @@ const Location = struct { x: u32, y: u32, z: u32 };
 
 const Update = struct { loc: Location, blk: u8 };
 
-var alloc: *std.mem.Allocator = undefined;
+var alloc: std.mem.Allocator = undefined;
 pub const size: usize = 256 * 64 * 256;
-pub var worldData: [size]u8 = undefined;
+pub var worldData: []u8 = undefined;
 var tick_count: usize = 0;
 var seed: u32 = 0;
 
@@ -26,17 +26,17 @@ var update2_count: usize = 0;
 const RndGen = std.rand.DefaultPrng;
 var rnd: RndGen = undefined;
 
-pub fn init(allocator: *std.mem.Allocator) !void {
+pub fn init(allocator: std.mem.Allocator) !void {
     alloc = allocator;
     rnd = RndGen.init(@bitCast(u64, std.time.timestamp()));
     seed = rnd.random().int(u32);
 
-    @memset(worldData[0..], 0, worldData.len);
+    worldData = try allocator.alloc(u8, size);
+    @memset(worldData[0..size], 0, size);
 
     var file = fs.cwd().openFile("save.ccc", fs.File.OpenFlags{ .mode = .read_only });
-    if (file) {
-        var f2 = file catch unreachable;
-        f2.close();
+    if (file) |f| {
+        f.close();
         load();
     } else |err| {
         //We have an error, so generate world
@@ -250,7 +250,7 @@ pub fn update() !void {
     // Backup every 6 hours
     if (tick_count % 432000 == 0) {
         var tstamp = std.time.timestamp();
-        var fname = std.fmt.allocPrintZ(alloc.*, "save.ccc.{}", .{tstamp}) catch unreachable;
+        var fname = std.fmt.allocPrintZ(alloc, "save.ccc.{}", .{tstamp}) catch unreachable;
         defer alloc.free(fname);
         save(fname);
     }
@@ -270,8 +270,7 @@ pub fn load() void {
 
     var toss: [3]f32 = undefined;
     _ = zlib.gzread(save_file, &toss[0], @sizeOf([3]f32));
-
-    _ = zlib.gzread(save_file, worldData[0..], 256 * 64 * 256);
+    _ = zlib.gzread(save_file, worldData[0..size], size);
     _ = zlib.gzclose(save_file);
 }
 
@@ -294,8 +293,10 @@ pub fn save(name: []const u8) void {
 
     var toss: [3]u32 = [_]u32{ 256, 64, 256 };
     _ = zlib.gzwrite(save_file, &toss[0], @sizeOf([3]u32));
-    _ = zlib.gzwrite(save_file, worldData[0..], 256 * 64 * 256);
+    _ = zlib.gzwrite(save_file, worldData[0..size], size);
     _ = zlib.gzclose(save_file);
 }
 
-pub fn deinit() void {}
+pub fn deinit() void {
+    alloc.free(worldData);
+}

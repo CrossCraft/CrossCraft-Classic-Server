@@ -1,13 +1,13 @@
 const std = @import("std");
-const network = @cImport({
-    @cInclude("sock.h");
-});
+const network = @import("network.zig");
 const Self = @This();
 const protocol = @import("protocol.zig");
 const world = @import("world.zig");
 const server = @import("server.zig");
 const broadcaster = @import("broadcaster.zig");
 const users = @import("users.zig");
+
+const Address = std.net.Address;
 
 const zlib = @cImport({
     @cInclude("zlib.h");
@@ -22,10 +22,10 @@ packet_buffer: [131]u8,
 
 /// Username of client
 username: [16]u8,
-ip: [15]u8,
+ip: Address,
 is_loaded: bool,
 is_op: u8,
-allocator: *std.mem.Allocator,
+allocator: std.mem.Allocator,
 id: u8,
 x: u16,
 y: u16,
@@ -77,26 +77,24 @@ fn get_name(packetID: u8) []const u8 {
 /// Receive a packet
 fn receive(self: *Self) !void {
     if (self.is_connected and !self.has_packet) {
-        var id = network.peek_recv(self.conn);
+        const id = network.peek_recv(self.conn) catch |err| switch (err) {
+            error.WouldBlock => return,
+            else => {
+                self.is_connected = false;
+                return;
+            },
+        };
 
-        if (id == -2)
-            return;
-
-        if (id == -1) {
-            self.is_connected = false;
-            return;
-        }
-
-        var packet_size = get_size(@bitCast(u8, id));
+        var packet_size = get_size(id);
         if (packet_size == 0) {
             self.is_connected = false;
             return;
         }
 
-        if (network.full_recv(self.conn, self.packet_buffer[0..packet_size].ptr, @intCast(c_uint, packet_size)) < 0) {
+        _ = network.full_recv(self.conn, self.packet_buffer[0..packet_size]) catch {
             self.is_connected = false;
             return;
-        }
+        };
 
         self.has_packet = true;
     }
@@ -136,11 +134,9 @@ pub fn send(self: *Self, buf: []u8) void {
     self.send_lock.lock();
     defer self.send_lock.unlock();
 
-    var res = network.conn_send(self.conn, buf.ptr, @intCast(c_uint, buf.len));
-
-    if (res < 0) {
+    _ = network.conn_send(self.conn, buf) catch {
         self.deinit();
-    }
+    };
 }
 
 fn compress_level(compBuf: []u8) !usize {
@@ -173,7 +169,7 @@ fn compress_level(compBuf: []u8) !usize {
     }
 
     strm.avail_in = world.size;
-    strm.next_in = world.worldData[0..];
+    strm.next_in = world.worldData[0..world.size];
 
     ret = zlib.deflate(&strm, zlib.Z_FINISH);
 
@@ -398,7 +394,7 @@ fn process(self: *Self) !void {
                 }
             }
 
-            user = users.get_user_ip(self.ip[0..]);
+            user = users.get_user_ip(self.ip);
             if (user == null) {
                 var user2 = users.User{ .name = self.username, .ip = self.ip, .banned = false, .ip_banned = false, .op = false };
 
