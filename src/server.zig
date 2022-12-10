@@ -19,34 +19,33 @@ pub const Config = struct {
 };
 
 var allocator: std.mem.Allocator = undefined;
-var gpa: std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true }) = undefined;
 
 /// Server Socket
 var ticks_alive: usize = 0;
 
 // ID 0 is Reserved for Console
-var client_list: [128]?*Client = undefined;
+var client_list: []?*Client = undefined;
+
+var running: bool = false;
 
 /// Initialize Server
-pub fn init(config: Config) !void {
-    // Setup Fixed Buffer Allocator
-    gpa = std.heap.GeneralPurposeAllocator(.{ .enable_memory_limit = true }){};
-    allocator = gpa.allocator();
+pub fn init(alloc: std.mem.Allocator, config: Config) !void {
+    allocator = alloc;
 
     // Init world
     try world.init(allocator);
 
     // Init client list
-    var i: usize = 0;
-    while (i < 128) : (i += 1) {
-        client_list[i] = null;
+    client_list = try allocator.alloc(?*Client, config.max_players);
+    for (client_list) |*client| {
+        client.* = null;
     }
 
     // Init users list
     try users.init(allocator);
 
     // Create brand new socket handle
-    network.start_server_sock() catch {
+    network.start_server_sock(config) catch {
         return error.InitializeFail;
     };
 
@@ -66,32 +65,26 @@ fn get_available_ID() !u8 {
 }
 
 fn ping_all() !void {
-    var buf: [1]u8 = undefined;
-    buf[0] = 0x01;
-
-    var i: usize = 1;
-    while (i < 128) : (i += 1) {
-        if (client_list[i] != null and client_list[i].?.is_ready) {
-            var client = client_list[i].?;
-            client.send(buf[0..]);
+    for (client_list) |c| if (c) |client| {
+        if (!client.is_ready) {
+            continue;
         }
-    }
+        client.send(&[_]u8{0x01});
+    };
 }
 
 /// Spawns all players previously connected for a new client
 /// client - Client to send the spawn packets to
-pub fn new_player_spawn(client: *Client) !void {
-    var i: usize = 1;
-    while (i < 128) : (i += 1) {
-        if (client_list[i] != null and client_list[i].?.id != client.id) {
-            var client2 = client_list[i].?;
-
-            var buf = try protocol.create_packet(allocator, protocol.Packet.SpawnPlayer);
-            try protocol.make_spawn_player(buf, client2.id, client2.username[0..], client2.x, client2.y, client2.z, client2.yaw, client2.pitch);
-            client.send(buf);
-            allocator.free(buf);
+pub fn new_player_spawn(new_player: *Client) !void {
+    for (client_list) |c| if (c) |client| {
+        if (client.id == new_player.id) {
+            continue;
         }
-    }
+        var buf = try protocol.create_packet(allocator, protocol.Packet.SpawnPlayer);
+        defer allocator.free(buf);
+        try protocol.make_spawn_player(buf, client.id, &client.username, client.x, client.y, client.z, client.yaw, client.pitch);
+        new_player.send(buf);
+    };
 }
 
 /// Sends a despawn & message to all clients
@@ -102,10 +95,7 @@ fn broadcast_client_kill(client: *Client) !void {
     protocol.make_despawn_player(buf, client.id);
     broadcaster.request_broadcast(buf, client.id);
 
-    var msg: [64]u8 = undefined;
-    for (msg) |*v| {
-        v.* = 0x20;
-    }
+    var msg: [64]u8 = [_]u8{' '} ** 64;
 
     var pos: usize = 2;
     msg[0] = '&';
@@ -129,25 +119,21 @@ fn broadcast_client_kill(client: *Client) !void {
 
 /// Garbage Collect Dead Clients
 fn gc_dead_clients() !void {
-    var i: usize = 1;
     var kills: usize = 0;
 
-    while (i < 128) : (i += 1) {
-        if (client_list[i] != null) {
-            if (!client_list[i].?.is_connected and !client_list[i].?.is_alive) {
-                var client = client_list[i].?;
-                try broadcast_client_kill(client);
-
-                client.deinit();
-                client.handle_frame.join();
-
-                allocator.destroy(client);
-                client_list[i] = null;
-
-                kills += 1;
-            }
+    for (client_list) |c, idx| if (c) |client| {
+        if (client.is_connected or client.is_alive) {
+            continue;
         }
-    }
+
+        try broadcast_client_kill(client);
+
+        client.deinit();
+        client.handle_frame.join();
+
+        allocator.destroy(client);
+        client_list[idx] = null;
+    };
 
     if (kills > 0) {
         std.debug.print("Killed {} dead connections.\n", .{kills});
@@ -162,23 +148,18 @@ fn send_message_to_client(msg: []const u8, sender_id: u8) !void {
         defer allocator.free(buf);
         try protocol.make_message(buf, @bitCast(i8, sender_id), msg);
 
-        if (client_list[sender_id] != null) {
-            client_list[sender_id].?.send(buf);
+        if (client_list[sender_id]) |client| {
+            client.send(buf);
         }
     }
 }
 
 fn get_client(name: []const u8) ?*Client {
-    var i: usize = 1;
-    while (i < 128) : (i += 1) {
-        if (client_list[i] != null) {
-            var name2 = std.mem.sliceTo(client_list[i].?.username[0..], 0);
-            if (std.mem.eql(u8, name, name2)) {
-                return client_list[i];
-            }
+    for (client_list) |c| if (c) |client| {
+        if (std.mem.eql(u8, &client.username, name)) {
+            return client;
         }
-    }
-
+    };
     return null;
 }
 
@@ -211,44 +192,40 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             }
         } else if (std.mem.eql(u8, "/list", cmd_first)) {
             try send_message_to_client("&eCurrent Players:", sender_id);
-            var i: usize = 1;
-            while (i < 128) : (i += 1) {
-                if (client_list[i] != null) {
-                    var buf: [18]u8 = undefined;
-                    buf[0] = '&';
-                    buf[1] = 'a';
-                    var pos: usize = 2;
-                    while (pos < 16 and client_list[i].?.username[pos - 2] != 0) : (pos += 1) {
-                        buf[pos] = client_list[i].?.username[pos - 2];
-                    }
-                    try send_message_to_client(buf[0..pos], sender_id);
+            for (client_list) |c| if (c) |client| {
+                var buf: [18]u8 = undefined;
+                buf[0] = '&';
+                buf[1] = 'a';
+                var pos: usize = 2;
+                while (pos < 16 and client.username[pos - 2] != 0) : (pos += 1) {
+                    buf[pos] = client.username[pos - 2];
                 }
-            }
+                try send_message_to_client(buf[0..pos], sender_id);
+            };
         } else if (std.mem.eql(u8, "/msg", cmd_first)) {
             var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
 
             std.debug.print("MSG {s}\n", .{cmd_second});
 
-            var client = get_client(cmd_second);
-            if (client == null) {
+            if (get_client(cmd_second)) |client| {
+                std.debug.print("MSG\n", .{});
+
+                var cmd_remain = cmd[cmd_first.len + 1 + cmd_second.len + 1 ..];
+                var buf: [256]u8 = undefined;
+                var user = if (sender_id == 0) "Console" else std.mem.sliceTo(client.username[0..], 0);
+
+                std.debug.print("User {s}\n", .{user});
+
+                var msg = try std.fmt.bufPrint(buf[0..], "&7[{s}->{s}]: {s}", .{ user, cmd_second, cmd_remain });
+
+                std.debug.print("MSG\n", .{});
+
+                try send_message_to_client(msg[0..64], sender_id);
+                try send_message_to_client(msg[0..64], client.id);
+            } else {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
-
-            std.debug.print("MSG\n", .{});
-
-            var cmd_remain = cmd[cmd_first.len + 1 + cmd_second.len + 1 ..];
-            var buf: [256]u8 = undefined;
-            var user = if (sender_id == 0) "Console" else std.mem.sliceTo(client_list[sender_id].?.username[0..], 0);
-
-            std.debug.print("User {s}\n", .{user});
-
-            var msg = try std.fmt.bufPrint(buf[0..], "&7[{s}->{s}]: {s}", .{ user, cmd_second, cmd_remain });
-
-            std.debug.print("MSG\n", .{});
-
-            try send_message_to_client(msg[0..64], sender_id);
-            try send_message_to_client(msg[0..64], client.?.id);
         } else if (std.mem.eql(u8, "/tp", cmd_first)) {
             var pos = cmd_first.len + 1;
             var cmd_second = std.mem.sliceTo(cmd[pos..], ' ');
@@ -278,24 +255,18 @@ pub fn parse_command(cmd: []const u8, sender_id: u8) !void {
             var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
 
-            var client = get_client(cmd_second);
-            if (client == null) {
+            if (get_client(cmd_second)) |client| {
+                try client.disconnect("You were kicked!");
+            } else {
                 try send_message_to_client("Couldn't find player!", sender_id);
                 return;
             }
-
-            try client.?.disconnect("You were kicked!");
         } else if (std.mem.eql(u8, "/stop", cmd_first) and super) {
-            var i: usize = 1;
-            while (i < 128) : (i += 1) {
-                if (client_list[i] != null) {
-                    try client_list[i].?.disconnect("Server stopping!");
-                }
-            }
+            for (client_list) |c| if (c) |client| {
+                try client.disconnect("Server stopping!");
+            };
             world.save("save.ccc");
-            deinit();
-            _ = gpa.detectLeaks();
-            std.os.exit(0);
+            _ = @atomicRmw(bool, &running, .Xchg, false, .SeqCst);
         } else if (std.mem.eql(u8, "/ban", cmd_first) and super) {
             var cmd_second = std.mem.sliceTo(cmd[cmd_first.len + 1 ..], ' ');
             cmd_second = std.mem.sliceTo(cmd_second, '\n');
@@ -428,7 +399,7 @@ fn command_loop() !void {
     var console_in = std.io.getStdIn();
     var console_reader = console_in.reader();
 
-    while (true) {
+    while (running) {
         std.time.sleep(50 * 1000 * 1000);
         var console_input: [256]u8 = [_]u8{0} ** 256;
         var cmd = try console_reader.read(console_input[0..]);
@@ -440,8 +411,9 @@ fn command_loop() !void {
 
 /// Run Server
 pub fn run() !void {
+    _ = @atomicRmw(bool, &running, .Xchg, true, .SeqCst);
     (try std.Thread.spawn(.{}, command_loop, .{})).detach();
-    while (true) {
+    while (running) {
         // Sleep 50ms (20 TPS)
         std.time.sleep(50 * 1000 * 1000);
 
@@ -457,7 +429,7 @@ pub fn run() !void {
         }
 
         // Broadcast all events
-        broadcaster.broadcast_all(allocator, client_list[0..]);
+        broadcaster.broadcast_all(allocator, client_list);
 
         // Check Client
         var conn = network.accept_new_conn() catch {
@@ -499,31 +471,22 @@ pub fn run() !void {
 /// name - Name to search for
 pub fn get_user_count(name: []const u8) usize {
     var count: usize = 0;
-
-    var i: usize = 1;
-    while (i < 128) : (i += 1) {
-        if (client_list[i] != null) {
-            if (std.mem.eql(u8, client_list[i].?.username[0..], name)) {
-                count += 1;
-            }
+    for (client_list) |c| if (c) |client| {
+        if (std.mem.eql(u8, &client.username, name)) {
+            count += 1;
         }
-    }
-
+    };
     return count;
 }
 
 /// Cleanup Server
 pub fn deinit() void {
-    var i: usize = 1;
-    while (i < 128) : (i += 1) {
-        if (client_list[i] != null) {
-            var client = client_list[i].?;
-            client.deinit();
-            allocator.destroy(client);
-            client_list[i] = null;
-        }
-    }
-
+    for (client_list) |c, idx| if (c) |client| {
+        client.deinit();
+        allocator.destroy(client);
+        client_list[idx] = null;
+    };
+    allocator.free(client_list);
     users.deinit();
     world.deinit();
     network.stop_server_sock();

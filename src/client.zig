@@ -123,7 +123,7 @@ fn copyUsername(self: *Self) void {
 }
 
 /// Send Packet from buffer
-pub fn send(self: *Self, buf: []u8) void {
+pub fn send(self: *Self, buf: []const u8) void {
     if (!self.is_connected)
         return;
 
