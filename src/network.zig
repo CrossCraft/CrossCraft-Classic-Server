@@ -12,7 +12,7 @@ const BeaconAddress = "www.classicube.net";
 var listener_socket: os.socket_t = undefined;
 var heartbeat_socket: os.socket_t = undefined;
 
-pub fn start_server_sock() !void {
+pub fn start_server_sock(config: Config) !void {
     listener_socket = try os.socket(os.AF.INET, os.SOCK.STREAM, 0);
 
     const flags = try os.fcntl(listener_socket, os.F.GETFL, 0);
@@ -20,7 +20,7 @@ pub fn start_server_sock() !void {
 
     try os.setsockopt(listener_socket, os.SOL.SOCKET, os.SO.REUSEADDR, &mem.toBytes(@as(c_int, 1)));
 
-    const address = try Address.parseIp("0.0.0.0", 25565);
+    const address = try Address.parseIp("0.0.0.0", config.port);
     try os.bind(listener_socket, &address.any, @sizeOf(@TypeOf(address.any)));
     try os.listen(listener_socket, 1);
 }

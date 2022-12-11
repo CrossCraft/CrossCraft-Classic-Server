@@ -1,7 +1,23 @@
 const std = @import("std");
 
 /// All possible packets in Classic v0.30 (Protocol 7)
-pub const Packet = enum(u8) { ServerIdentification = 0x00, Ping = 0x01, LevelInitialize = 0x02, LevelDataChunk = 0x03, LevelFinalize = 0x04, SetBlock = 0x06, SpawnPlayer = 0x07, PlayerTeleport = 0x08, PositionAndOrientation = 0x09, PositionUpdate = 0x0A, OrientationUpdate = 0x0B, DespawnPlayer = 0x0C, Message = 0x0D, Disconnect = 0x0E, UpdateUserType = 0x0F };
+pub const Packet = enum(u8) {
+    ServerIdentification = 0x00,
+    Ping = 0x01,
+    LevelInitialize = 0x02,
+    LevelDataChunk = 0x03,
+    LevelFinalize = 0x04,
+    SetBlock = 0x06,
+    SpawnPlayer = 0x07,
+    PlayerTeleport = 0x08,
+    PositionAndOrientation = 0x09,
+    PositionUpdate = 0x0A,
+    OrientationUpdate = 0x0B,
+    DespawnPlayer = 0x0C,
+    Message = 0x0D,
+    Disconnect = 0x0E,
+    UpdateUserType = 0x0F,
+};
 
 /// Get size of all packets
 fn get_packet_size(ptype: Packet) usize {
@@ -28,12 +44,7 @@ fn get_packet_size(ptype: Packet) usize {
 pub fn create_packet(allocator: std.mem.Allocator, ptype: Packet) ![]u8 {
     var size = get_packet_size(ptype);
     var buf = try allocator.alloc(u8, size);
-
-    var i: usize = 0;
-    while (i < size) : (i += 1) {
-        buf[i] = ' ';
-    }
-
+    @memset(buf.ptr, ' ', size);
     return buf;
 }
 

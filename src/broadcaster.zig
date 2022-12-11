@@ -29,8 +29,9 @@ pub fn request_broadcast(buf: []u8, exclude_id: u8) void {
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
 
-    if (packet_count >= packet_queue.len)
+    if (packet_count >= packet_queue.len) {
         return;
+    }
 
     packet_queue[packet_count].buf = buf;
     packet_queue[packet_count].exclude_id = exclude_id;
@@ -42,26 +43,18 @@ pub fn broadcast_all(alloc: std.mem.Allocator, client_list: []?*Client) void {
     packet_queue_lock.lock();
     defer packet_queue_lock.unlock();
 
-    if (packet_count == 0 or packet_count >= 512)
+    if (packet_count == 0 or packet_count >= 512) {
         return;
-
-    var c: usize = 0;
-    while (c < packet_count) : (c += 1) {
-        var b_info = &packet_queue[c];
-
-        var i: usize = 1;
-        while (i < 128) : (i += 1) {
-            if (client_list[i] != null and i != b_info.exclude_id and client_list[i].?.is_ready) {
-                var client = client_list[i].?;
-                client.send(b_info.buf);
-                std.time.sleep(1000 * 1000);
-            }
-        }
     }
 
-    var i: usize = 0;
-    while (i < packet_count) : (i += 1) {
-        var b_info = &packet_queue[i];
+    for (packet_queue[0..packet_count]) |*b_info| {
+        for (client_list) |c| if (c) |client| {
+            if (client.id == b_info.exclude_id or !client.is_ready) {
+                continue;
+            }
+            client.send(b_info.buf);
+            std.time.sleep(1000 * 1000);
+        };
 
         if (b_info.buf[0] == 0x0D) {
             logger.log_chat(b_info.buf[1..]) catch unreachable;
